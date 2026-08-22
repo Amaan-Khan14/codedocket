@@ -127,6 +127,24 @@
       "created": "2026-08-22T16:26:45.593344+05:30",
       "updated": "2026-08-22T16:26:45.593344+05:30"
     },
+    "hooks.wire-shapes": {
+      "key": "hooks.wire-shapes",
+      "kind": "fact",
+      "statement": "Stop-hook block shapes: claude/codex/zcode take compact {\"decision\":\"block\",\"reason\":\"...\"} on stdout with exit 0 and empty-stdout-allow; kiro has no JSON decision contract — Agent Stop feeds successful-hook stdout (plain text) into the agent's context. The hook's block reason must select the gated client's own newest pending session by FirstAt, not by lexicographic id (ids sort by client name first).",
+      "scope": [
+        "hook.go"
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode",
+          "note": "Docs verified 2026-08-22; claude re-verification pending rate limit, live e2e in M6 Task 6.",
+          "at": "2026-08-22T20:53:16.492902+05:30"
+        }
+      ],
+      "created": "2026-08-22T20:53:16.492902+05:30",
+      "updated": "2026-08-22T20:53:16.492902+05:30"
+    },
     "m6.architecture": {
       "key": "m6.architecture",
       "kind": "decision",
