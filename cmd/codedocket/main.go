@@ -44,6 +44,12 @@ func main() {
 			os.Exit(1)
 		}
 
+	case "hook":
+		if err := hookCtx(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, "codedocket hook:", err)
+			os.Exit(1)
+		}
+
 	case "dispute":
 		if err := disputeCtx(os.Args[2:]); err != nil {
 			fmt.Fprintln(os.Stderr, "codedocket dispute:", err)
@@ -96,6 +102,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  record    record a decision or observation")
 	fmt.Fprintln(os.Stderr, "  note      capture a quick observation for later review")
 	fmt.Fprintln(os.Stderr, "  finalize  review captured notes and record knowledge")
+	fmt.Fprintln(os.Stderr, "  hook      client hook entry points (hook stop --client X)")
 	fmt.Fprintln(os.Stderr, "  dispute   mark knowledge as disputed")
 	fmt.Fprintln(os.Stderr, "  explore   explore project knowledge")
 	fmt.Fprintln(os.Stderr, "  serve     run MCP stdio server")
