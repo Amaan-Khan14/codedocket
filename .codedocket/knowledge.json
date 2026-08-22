@@ -458,7 +458,7 @@
     "workflow.verify-commands": {
       "key": "workflow.verify-commands",
       "kind": "decision",
-      "statement": "Every completed-work handoff includes a copy-paste verification block: the exact commands the owner can run to reproduce the checks (build, tests, e2e in a throwaway dir, expected output), not just the claim that they pass.",
+      "statement": "Every completed-work handoff includes a copy-paste verification block that is PASTE-SAFE: no inline shell comments (they get mangled into arguments on multi-line paste), expected output stated in prose before or after the block, one command per line.",
       "scope": [
         "."
       ],
@@ -468,10 +468,15 @@
           "session": "zcode",
           "note": "Owner feedback 2026-08-22: agent-reported verification is not independently checkable without commands.",
           "at": "2026-08-22T16:40:48.481442+05:30"
+        },
+        {
+          "session": "zcode",
+          "note": "Refines earlier convention: user's paste showed # comments becoming go test package args.",
+          "at": "2026-08-22T20:55:25.811693+05:30"
         }
       ],
       "created": "2026-08-22T16:40:48.481442+05:30",
-      "updated": "2026-08-22T16:40:48.481442+05:30"
+      "updated": "2026-08-22T20:55:25.811693+05:30"
     }
   },
   "edges": [
