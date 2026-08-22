@@ -109,6 +109,24 @@
       "created": "2026-08-08T16:28:45.255581+05:30",
       "updated": "2026-08-08T16:28:45.255581+05:30"
     },
+    "hooks.config-paths": {
+      "key": "hooks.config-paths",
+      "kind": "fact",
+      "statement": "Stop-hook registration: claude = ~/.claude/settings.json hooks.Stop[] (exec-form handler {type:command,command,args}); codex = ~/.codex/config.toml [[hooks.Stop]]+[[hooks.Stop.hooks]] (single command string; hooks.json is an alternative layout); zcode = ~/.zcode/cli/config.json hooks.events.Stop[] (type:process) and REQUIRES hooks.enabled=true, project-level hook configs are ignored by ZCode; kiro hooks are IDE-managed markdown steering files, not file-configurable (registration deferred).",
+      "scope": [
+        "cmd/codedocket/setup_clients.go"
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode",
+          "note": "Verified against docs 2026-08-22; presence markers must be path/name independent.",
+          "at": "2026-08-22T21:04:26.862101+05:30"
+        }
+      ],
+      "created": "2026-08-22T21:04:26.862101+05:30",
+      "updated": "2026-08-22T21:04:26.862101+05:30"
+    },
     "hooks.stop-capability": {
       "key": "hooks.stop-capability",
       "kind": "fact",
@@ -403,6 +421,24 @@
       ],
       "created": "2026-08-16T22:18:03.929724+05:30",
       "updated": "2026-08-16T22:18:03.929724+05:30"
+    },
+    "setup.presence-markers": {
+      "key": "setup.presence-markers",
+      "kind": "constraint",
+      "statement": "Idempotency markers in config merges must not depend on the binary name or path: JSON hook upserts match exact handler argv and update the command field on drift; TOML matches the subcommand signature (hook stop --client \u003cname\u003e). A codedocket-name-based literal duplicated blocks on every run for dev builds named codedocket-*.",
+      "scope": [
+        "cmd/codedocket/setup_clients.go"
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode",
+          "note": "Bug caught in Task 4 smoke; unit tests now use non-codedocket paths to prevent regression.",
+          "at": "2026-08-22T21:04:26.866318+05:30"
+        }
+      ],
+      "created": "2026-08-22T21:04:26.866318+05:30",
+      "updated": "2026-08-22T21:04:26.866318+05:30"
     },
     "storage.git-as-history": {
       "key": "storage.git-as-history",
