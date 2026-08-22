@@ -80,7 +80,7 @@ func finalizeCtx(args []string) error {
 		if err := codedocket.MarkFinalized(s.Dir, len(notes), time.Now()); err != nil {
 			return fmt.Errorf("marking %s finalized: %w", s.ID, err)
 		}
-		fmt.Printf("finalized %s (%d notes)\n\n", s.ID, len(notes))
+		fmt.Printf("finalized %s (%d %s)\n\n", s.ID, len(notes), codedocket.NotesWord(len(notes)))
 	}
 
 	// Safety net: surface other pending sessions the agent didn't just
@@ -104,8 +104,8 @@ func finalizeCtx(args []string) error {
 	// Follow-through footnote: finalized-but-zero-records join (read-only).
 	if store, err := codedocket.Load(knowledgePath); err == nil {
 		for _, s := range codedocket.UnreviewedSessions(store, sessions, codedocket.ScratchRetention, time.Now()) {
-			fmt.Printf("⚠ %s: %d notes never recorded — re-review with 'codedocket finalize --session %s --reopen', or ignore if intentional\n",
-				s.ID, s.Notes, s.ID)
+			fmt.Printf("⚠ %s: %d %s never recorded — re-review with 'codedocket finalize --session %s --reopen', or ignore if intentional\n",
+				s.ID, s.Notes, codedocket.NotesWord(s.Notes), s.ID)
 		}
 	} else {
 		fmt.Fprintf(os.Stderr, "warning: footnote join skipped, store unreadable: %v\n", err)
@@ -144,6 +144,6 @@ func reopenSession(sessions []codedocket.SessionInfo, id string) error {
 	if err := codedocket.ReopenSession(si.Dir); err != nil {
 		return err
 	}
-	fmt.Printf("reopened %s; the next finalize will review its %d notes\n", id, si.Notes)
+	fmt.Printf("reopened %s; the next finalize will review its %d %s\n", id, si.Notes, codedocket.NotesWord(si.Notes))
 	return nil
 }

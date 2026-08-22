@@ -181,12 +181,21 @@ func capLines(s string, max int) string {
 	return strings.Join(lines[:max], "\n") + "\n… (truncated)"
 }
 
+// NotesWord returns "note"/"notes" for a count — shared by every
+// note-count message so the copy stays pluralized in one place.
+func NotesWord(n int) string {
+	if n == 1 {
+		return "note"
+	}
+	return "notes"
+}
+
 // RenderSession renders one session's review prompt. Pure: same inputs →
 // identical bytes, every time. The copy is shared with the Stop-hook
 // reason and the AGENTS.md snippet (Tasks 3/5) — edit with care.
 func RenderSession(id string, notes []Note, since time.Time, gitEvidence string) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "codedocket finalize — session %s (%d notes)\n\n", id, len(notes))
+	fmt.Fprintf(&b, "codedocket finalize — session %s (%d %s)\n\n", id, len(notes), NotesWord(len(notes)))
 
 	b.WriteString("## proposals\n\n")
 	for _, n := range notes {
