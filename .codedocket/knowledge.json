@@ -181,6 +181,23 @@
       "created": "2026-08-22T16:26:39.57068+05:30",
       "updated": "2026-08-22T16:26:39.57068+05:30"
     },
+    "m6.shipped": {
+      "key": "m6.shipped",
+      "kind": "fact",
+      "statement": "M6 shipped on feat/m6-memory-consolidation (Tasks 0-6): note, finalize, hook stop, setup Stop-hook registration for claude/codex/zcode (kiro deferred - hooks are IDE-managed steering files), snippet v2, README. Full loop dogfooded live on the real store (a7101cb). Pending: owner restart of ZCode for the live gated-session check, merge to main, tag v0.4.0.",
+      "scope": [
+        "."
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode",
+          "at": "2026-08-22T21:46:24.937013+05:30"
+        }
+      ],
+      "created": "2026-08-22T21:46:24.937013+05:30",
+      "updated": "2026-08-22T21:46:24.937013+05:30"
+    },
     "mcp.session-provenance": {
       "key": "mcp.session-provenance",
       "kind": "decision",
@@ -296,6 +313,24 @@
       ],
       "created": "2026-08-12T15:14:20.279656+05:30",
       "updated": "2026-08-12T15:14:20.279656+05:30"
+    },
+    "onboarding.snippet-v2": {
+      "key": "onboarding.snippet-v2",
+      "kind": "fact",
+      "statement": "Snippet v2 adds the capture section (codedocket_note mid-task, finalize when the Stop hook insists, record-or-skip deliberately) and ensureMarkdownSnippet now upgrades stale marker blocks in place (outcome \"updated\", surrounding content preserved, malformed marker pairs untouched) — repos onboarded pre-v2 upgrade on their next init/setup run.",
+      "scope": [
+        "cmd/codedocket/agents.go"
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode",
+          "note": "M6 Tasks 5+6 complete; upgrade dogfooded on this repo's AGENTS.md and ~/.zcode/AGENTS.md.",
+          "at": "2026-08-22T21:46:24.9312+05:30"
+        }
+      ],
+      "created": "2026-08-22T21:46:24.9312+05:30",
+      "updated": "2026-08-22T21:46:24.9312+05:30"
     },
     "product.rename-codedocket": {
       "key": "product.rename-codedocket",
@@ -457,6 +492,24 @@
       ],
       "created": "2026-08-22T21:04:26.866318+05:30",
       "updated": "2026-08-22T21:04:26.866318+05:30"
+    },
+    "setup.self-install-truncation": {
+      "key": "setup.self-install-truncation",
+      "kind": "bug",
+      "statement": "installSelf opened the running executable for read and the same target path with O_TRUNC: running setup from ~/.local/bin/codedocket zeroed the binary in place (silent no-op execs afterwards). Fixed by splitting installBinary and no-op-ing when source and target are one file (EvalSymlinks + os.SameFile).",
+      "scope": [
+        "cmd/codedocket/setup.go"
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode",
+          "note": "Found by M6 dogfood: records silently vanished; regression test pins same-path copy.",
+          "at": "2026-08-22T21:46:24.934152+05:30"
+        }
+      ],
+      "created": "2026-08-22T21:46:24.934152+05:30",
+      "updated": "2026-08-22T21:46:24.934152+05:30"
     },
     "storage.git-as-history": {
       "key": "storage.git-as-history",

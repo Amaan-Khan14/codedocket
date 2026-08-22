@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -336,6 +337,27 @@ func TestSelectClientsByName(t *testing.T) {
 		if !strings.Contains(err.Error(), name) {
 			t.Fatalf("error %q missing known client %q", err, name)
 		}
+	}
+}
+
+func TestInstallBinarySamePathNoTruncation(t *testing.T) {
+	target := filepath.Join(t.TempDir(), "codedocket")
+	payload := []byte("FAKE BINARY PAYLOAD — MUST SURVIVE")
+	if err := os.WriteFile(target, payload, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Running setup from the installed location hits exactly this: source
+	// and target are one file. O_TRUNC onto the open source would zero it.
+	if err := installBinary(target, target); err != nil {
+		t.Fatalf("same-path install: %v", err)
+	}
+	after, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(after, payload) {
+		t.Fatalf("same-path install corrupted the binary: %d bytes → %d bytes", len(payload), len(after))
 	}
 }
 
