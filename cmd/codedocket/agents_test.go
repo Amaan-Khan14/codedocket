@@ -92,3 +92,75 @@ func TestEnsureAgentsSnippetEmptyFile(t *testing.T) {
 		t.Errorf("empty file should become snippet-only, got prefix:\n%q", string(data)[:80])
 	}
 }
+
+func TestEnsureAgentsSnippetReplacesStaleBlock(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "AGENTS.md")
+
+	// A repo onboarded before the v2 snippet: old block between markers,
+	// human content on both sides.
+	oldBlock := markerBegin + `
+## Project knowledge (codedocket)
+
+OLD v1 CONTENT — no note/finalize section.
+` + markerEnd + "\n"
+	before := "# Team notes\n\nKeep this.\n\n"
+	after := "\n## Below the snippet\n\nAlso keep this.\n"
+	if err := os.WriteFile(path, []byte(before+oldBlock+after), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	outcome, err := ensureAgentsSnippet(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if outcome != "updated" {
+		t.Fatalf("outcome = %q, want updated", outcome)
+	}
+
+	data, _ := os.ReadFile(path)
+	s := string(data)
+	if !strings.HasPrefix(s, before) || !strings.HasSuffix(s, after) {
+		t.Fatalf("surrounding content not preserved:\n%q", s)
+	}
+	if !strings.Contains(s, "codedocket_note") || !strings.Contains(s, "codedocket finalize") {
+		t.Error("upgraded snippet missing the v2 note/finalize section")
+	}
+	if strings.Contains(s, "OLD v1 CONTENT") {
+		t.Error("stale snippet content survived the upgrade")
+	}
+	if strings.Count(s, markerBegin) != 1 || strings.Count(s, markerEnd) != 1 {
+		t.Error("marker duplication")
+	}
+
+	// Second run on the upgraded file is a no-op.
+	outcome2, err := ensureAgentsSnippet(dir)
+	if err != nil || outcome2 != "present" {
+		t.Fatalf("second run = %q, %v; want present", outcome2, err)
+	}
+	data2, _ := os.ReadFile(path)
+	if string(data) != string(data2) {
+		t.Fatal("second run modified the file")
+	}
+}
+
+func TestEnsureAgentsSnippetMalformedMarkersUntouched(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "AGENTS.md")
+	broken := "# Notes\n\n" + markerBegin + "\nunterminated block\n"
+	if err := os.WriteFile(path, []byte(broken), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	outcome, err := ensureAgentsSnippet(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if outcome != "present" {
+		t.Fatalf("outcome = %q, want present (never corrupt malformed files)", outcome)
+	}
+	data, _ := os.ReadFile(path)
+	if string(data) != broken {
+		t.Fatal("malformed file must be left byte-identical")
+	}
+}
