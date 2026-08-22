@@ -332,6 +332,24 @@
       "created": "2026-08-22T21:46:24.9312+05:30",
       "updated": "2026-08-22T21:46:24.9312+05:30"
     },
+    "ops.zero-byte-exec-silent": {
+      "key": "ops.zero-byte-exec-silent",
+      "kind": "fact",
+      "statement": "Executing a zero-byte binary on macOS returns exit 0 with no output: a corrupted CLI fails completely silently, which masks data-loss incidents (observed when codedocket's self-install truncated its own binary).",
+      "scope": [
+        "cmd/codedocket/setup.go"
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "cli-20260822T162534Z",
+          "note": "executing a zero-byte binary on macOS exits 0 silently - a corrupted CLI fails without any error output",
+          "at": "2026-08-22T21:55:56.457419+05:30"
+        }
+      ],
+      "created": "2026-08-22T21:55:56.457419+05:30",
+      "updated": "2026-08-22T21:55:56.457419+05:30"
+    },
     "product.rename-codedocket": {
       "key": "product.rename-codedocket",
       "kind": "decision",
