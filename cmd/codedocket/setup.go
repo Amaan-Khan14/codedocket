@@ -89,9 +89,15 @@ func setupCtx(args []string) error {
 			if c.GlobalMD != "" {
 				report = append(report, applyMarkdown(c.Label, filepath.Join(home, c.GlobalMD)))
 			}
+			if c.HookGlobal != "" && c.mergeHook != nil {
+				report = append(report, applyJSONOrTOML(c.Label+" Stop hook", filepath.Join(home, c.HookGlobal), c.mergeHook, binPath))
+			}
 		} else {
 			if c.ProjectConfig != "" {
 				report = append(report, applyJSONOrTOML(c.Label, filepath.Join(cwd, c.ProjectConfig), c.merge, binPath))
+			}
+			if c.HookProject != "" && c.mergeHook != nil {
+				report = append(report, applyJSONOrTOML(c.Label+" Stop hook", filepath.Join(cwd, c.HookProject), c.mergeHook, binPath))
 			}
 		}
 	}
