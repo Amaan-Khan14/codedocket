@@ -29,9 +29,9 @@ type sessionFile struct {
 	Notes   []Note `json:"notes"`
 }
 
-// finalizedMarker names the file whose presence marks a session as
-// finalized (written by `finalize`; existence is all Task 1 needs).
-const finalizedMarker = "finalized.json"
+// finalizedFile names the file whose presence marks a session as finalized
+// (written by `finalize`; existence is all pending-detection needs).
+const finalizedFile = "finalized.json"
 
 // NewSessionID returns "<name>-<UTC compact timestamp>" — sortable and
 // filesystem-safe. The timestamp is second-granular; two agents sharing a
@@ -123,8 +123,18 @@ func IsFinalized(sessionDir string) bool {
 }
 
 func isFinalized(sessionDir string) bool {
-	_, err := os.Stat(filepath.Join(sessionDir, finalizedMarker))
+	_, err := os.Stat(filepath.Join(sessionDir, finalizedFile))
 	return err == nil
+}
+
+// LoadSessionNotes returns the notes of one session (empty when none
+// captured yet).
+func LoadSessionNotes(storeDir, sessionID string) ([]Note, error) {
+	sf, err := loadSessionFile(filepath.Join(sessionsDir(storeDir), sessionID, "notes.json"), sessionID)
+	if err != nil {
+		return nil, err
+	}
+	return sf.Notes, nil
 }
 
 // EnsureSessionsGitignore guarantees <storeDir>/.gitignore ignores sessions/.
