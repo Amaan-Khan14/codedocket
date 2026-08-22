@@ -199,6 +199,24 @@
       "created": "2026-08-22T17:05:20.972652+05:30",
       "updated": "2026-08-22T17:05:20.972652+05:30"
     },
+    "mcp.tool-list-frozen-at-start": {
+      "key": "mcp.tool-list-frozen-at-start",
+      "kind": "fact",
+      "statement": "An MCP server's tool surface is fixed at session start: rebuilding the codedocket binary mid-session (e.g. adding codedocket_note) does not expose new tools to the running client until the server is restarted.",
+      "scope": [
+        "internal/mcp/"
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "cli-20260822T155906Z",
+          "note": "MCP servers capture their tool list at session start; a binary rebuilt mid-session with new tools only serves them after the client restarts",
+          "at": "2026-08-22T21:29:24.437501+05:30"
+        }
+      ],
+      "created": "2026-08-22T21:29:24.437501+05:30",
+      "updated": "2026-08-22T21:29:24.437501+05:30"
+    },
     "merge.deterministic-rules": {
       "key": "merge.deterministic-rules",
       "kind": "decision",
