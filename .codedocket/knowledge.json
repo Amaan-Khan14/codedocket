@@ -368,6 +368,29 @@
       "created": "2026-08-14T21:47:44.100318+05:30",
       "updated": "2026-08-14T21:47:44.100318+05:30"
     },
+    "readme.show-hn-positioning": {
+      "key": "readme.show-hn-positioning",
+      "kind": "decision",
+      "statement": "The README now leads with Show HN-friendly positioning and an MCP-first quickstart: stable install, agent setup, repo init, MCP tools, supported clients, and detailed CLI command reference after the product flow.",
+      "scope": [
+        "README.md"
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "codex-mcp-client-20260824T150626Z",
+          "note": "README updated to make the problem, value proposition, and first-use flow clear before implementation details.",
+          "at": "2026-08-24T20:44:20.153701+05:30"
+        },
+        {
+          "session": "codex-mcp-client-20260824T150626Z",
+          "note": "Refined after review: Quickstart should emphasize MCP agent usage instead of standalone CLI record/explore commands.",
+          "at": "2026-08-24T20:48:03.087869+05:30"
+        }
+      ],
+      "created": "2026-08-24T20:44:20.153701+05:30",
+      "updated": "2026-08-24T20:48:03.087869+05:30"
+    },
     "scope.global-retained": {
       "key": "scope.global-retained",
       "kind": "decision",

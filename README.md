@@ -1,104 +1,52 @@
-# codedocket — accumulated project context for coding sessions
+# CodeDocket
 
-`codedocket` gives a project a persistent, structured memory. Decisions, constraints,
-bugs, assumptions, rationale, and facts are recorded as typed **knowledge
-entries** in a single git-committed JSON file, so any future session — human or
-agent — can ask *what does this project already know?* before acting.
+Git-backed project memory for coding agents.
 
-The philosophy: a **dumb store with careful bookkeeping, driven by smart
-callers**. The tool never infers, auto-resolves, or deletes anything; callers
-(humans or coding agents) explicitly record, update, supersede, and dispute.
+Coding agents are good at reading code, but they repeatedly lose the "why":
+decisions, constraints, bug root causes, assumptions, and rationale from earlier
+sessions. CodeDocket gives every repo a small, durable memory layer that agents
+can read before acting and update when they learn something worth preserving.
 
-## Core ideas
+Everything lives in `.codedocket/knowledge.json`, a plain JSON file you can
+commit, diff, review, and carry with the project.
 
-- **Nothing is ever deleted.** Wrong or outdated entries are *superseded* by
-  their replacement, or *disputed* to flag them for human review. History is
-  preserved and re-surfaceable.
-- **Fully deterministic merge.** Same store + same operation = same result.
-  No inference, no auto-resolution, no fuzzy matching.
-- **Git is the history of record.** The store is one indented JSON file with
-  sorted keys and atomic writes, so diffs stay clean and reviewable.
-- **Scoped knowledge.** Every entry names the paths it applies to (`scope`),
-  so querying "I'm about to touch `internal/merge/`" surfaces exactly the
-  constraints that govern that area. Scope `.` means project-wide.
-- **Zero dependencies.** Go standard library only.
+## Why It Exists
 
-## Data model
-
-Each **Knowledge** entry has:
-
-| field | meaning |
+| Problem | CodeDocket's answer |
 |---|---|
-| `key` | stable caller-chosen slug naming the *topic* (e.g. `merge.deterministic`); one position per key |
-| `kind` | `decision` \| `constraint` \| `bug` \| `assumption` \| `rationale` \| `fact` |
-| `statement` | the current position on the topic; updated in place as understanding evolves |
-| `scope` | paths this knowledge applies to; `.` = project-global |
-| `status` | `active` \| `superseded` \| `disputed` |
-| `evidence` | observations backing the entry (session, note, timestamp); confidence is *derived* from evidence, never stored |
+| Agents rediscover the same context every session | Store project knowledge once and retrieve it by topic or path |
+| Important rationale gets buried in chat history | Commit it beside the code in `.codedocket/knowledge.json` |
+| Agent memory can become fuzzy or unreviewable | Keep the store deterministic, explicit, and git-diffable |
+| Wrong knowledge needs history, not deletion | Supersede or dispute entries while preserving evidence |
+| Mid-task discoveries interrupt flow | Capture cheap notes now, consolidate them at the end |
 
-Supersession is recorded as a typed `supersedes` **edge**, so a query with
-`--include-superseded` can show an old position side-by-side with the one that
-replaced it.
+## Quickstart
 
-## Installation
-
-### Recommended: npm / npx
-
-Run CodeDocket without cloning this repo or installing Go:
-
-```sh
-npx -y codedocket serve
-```
-
-Or install it globally:
+For MCP usage, install a stable `codedocket` binary first. Agent clients need a
+command they can launch later, outside the shell that installed it.
 
 ```sh
 npm install -g codedocket
 codedocket setup
 ```
 
-### From Go source
-
-Requires Go 1.22+.
+Then initialize project memory in any repo where you want agents to use it:
 
 ```sh
-# Install directly from GitHub (recommended)
-go install github.com/Amaan-Khan14/codedocket/cmd/codedocket@latest
-
-# Or build from source
-git clone https://github.com/Amaan-Khan14/codedocket.git
-cd codedocket
-go build -o codedocket ./cmd/codedocket
+cd your-project
+codedocket init
 ```
 
-### For MCP server (AI agents)
+Restart your agent client. It will now have CodeDocket MCP tools available.
 
-Run the setup wizard to install `codedocket` to `~/.local/bin` and configure supported
-agent clients:
+| MCP tool | When the agent should use it |
+|---|---|
+| `codedocket_explore` | Before planning or editing unfamiliar code |
+| `codedocket_record` | When it learns a durable decision, constraint, bug root cause, assumption, rationale, or fact |
+| `codedocket_dispute` | When existing knowledge looks wrong but should stay visible |
+| `codedocket_note` | When it notices something mid-task but should not stop to structure it |
 
-```sh
-codedocket setup
-```
-
-For non-interactive setup, pass the target clients and scope explicitly:
-
-```sh
-codedocket setup --clients codex,claude --scope global --yes
-codedocket setup --clients opencode,cursor --scope project --skip-install
-```
-
-Supported clients:
-
-| client | global config | project config | global instructions |
-|---|---|---|---|
-| opencode | `~/.config/opencode/opencode.json` | `opencode.json` | `~/.config/opencode/AGENTS.md` |
-| Claude Code | `~/.claude.json` | `.mcp.json` | `~/.claude/CLAUDE.md` |
-| Cursor | `~/.cursor/mcp.json` | `.cursor/mcp.json` | none |
-| Codex CLI | `~/.codex/config.toml` | not supported in V1 | `~/.codex/AGENTS.md` |
-| ZCode | `~/.zcode/cli/config.json` | `.zcode/config.json` | `~/.zcode/AGENTS.md` |
-| Kiro | `~/.kiro/settings/mcp.json` | `.kiro/settings/mcp.json` | none |
-
-You can also configure an MCP client manually:
+Manual MCP shape, if you prefer editing client config yourself:
 
 ```json
 {
@@ -111,7 +59,101 @@ You can also configure an MCP client manually:
 }
 ```
 
-## Usage
+## The Agent Workflow
+
+| Moment | Command or MCP tool | What happens |
+|---|---|---|
+| Before editing unfamiliar code | `codedocket explore --path internal/foo/` or `codedocket_explore` | The agent sees relevant decisions, constraints, bugs, and rationale |
+| When a fact becomes clear | `codedocket record ...` or `codedocket_record` | Structured knowledge is written to `.codedocket/knowledge.json` |
+| When the agent is busy mid-task | `codedocket note "one sentence"` or `codedocket_note` | A cheap scratch note is saved without forcing structure immediately |
+| At session end | `codedocket finalize` | Notes and git evidence become numbered proposals to record or skip |
+| If knowledge is outdated | `codedocket record --supersedes old.key ...` | The replacement becomes active and the old position remains available |
+| If knowledge is suspicious | `codedocket dispute --key some.key` | The entry stays visible with a disputed marker |
+
+Example agent loop:
+
+| Step | Agent action |
+|---|---|
+| 1 | Calls `codedocket_explore` with the paths it is about to touch |
+| 2 | Uses the returned project knowledge while planning and editing |
+| 3 | Calls `codedocket_note` for cheap mid-task observations |
+| 4 | At the end, `codedocket finalize` turns notes into reviewable proposals |
+| 5 | Calls `codedocket_record` for accepted proposals so future sessions inherit them |
+
+## What Gets Stored
+
+Each knowledge entry has a stable key, a type, a statement, a scope, a status,
+and evidence.
+
+| Field | Meaning |
+|---|---|
+| `key` | Caller-chosen topic slug, for example `merge.deterministic` |
+| `kind` | `decision`, `constraint`, `bug`, `assumption`, `rationale`, or `fact` |
+| `statement` | The current position on that topic |
+| `scope` | Paths this knowledge applies to; `.` means project-wide |
+| `status` | `active`, `superseded`, or `disputed` |
+| `evidence` | Session notes and timestamps backing the entry |
+
+CodeDocket does not infer truth, delete old positions, or silently resolve
+conflicts. Callers explicitly record, refine, supersede, or dispute knowledge.
+
+## Supported Agent Clients
+
+| Client | MCP config | Project config | Instructions | Stop-hook finalize gate |
+|---|---|---|---|---|
+| Claude Code | `~/.claude.json` | `.mcp.json` | `~/.claude/CLAUDE.md` | yes |
+| Codex CLI | `~/.codex/config.toml` | not supported in V1 | `~/.codex/AGENTS.md` | yes |
+| ZCode | `~/.zcode/cli/config.json` | `.zcode/config.json` | `~/.zcode/AGENTS.md` | yes |
+| opencode | `~/.config/opencode/opencode.json` | `opencode.json` | `~/.config/opencode/AGENTS.md` | no |
+| Cursor | `~/.cursor/mcp.json` | `.cursor/mcp.json` | none | no |
+| Kiro | `~/.kiro/settings/mcp.json` | `.kiro/settings/mcp.json` | none | deferred |
+
+Manual MCP configuration:
+
+```json
+{
+  "mcpServers": {
+    "codedocket": {
+      "command": "codedocket",
+      "args": ["serve"]
+    }
+  }
+}
+```
+
+## Installation
+
+### npm / npx
+
+```sh
+npx -y codedocket serve
+```
+
+```sh
+npm install -g codedocket
+codedocket setup
+```
+
+The npm package downloads the matching native GitHub release binary during
+install, so users do not need Go.
+
+### Go
+
+Requires Go 1.22 or newer.
+
+```sh
+go install github.com/Amaan-Khan14/codedocket/cmd/codedocket@latest
+```
+
+Or build from source:
+
+```sh
+git clone https://github.com/Amaan-Khan14/codedocket.git
+cd codedocket
+go build -o codedocket ./cmd/codedocket
+```
+
+## Command Reference
 
 All commands operate on `.codedocket/knowledge.json` in the current directory.
 
@@ -120,17 +162,18 @@ All commands operate on `.codedocket/knowledge.json` in the current directory.
 Initialize a knowledge store.
 
 ```sh
-codedocket init            # creates .codedocket/knowledge.json; refuses if it exists
-codedocket init --force    # overwrite an existing store
+codedocket init
+codedocket init --force
+codedocket init --no-agents
 ```
 
-By default, `codedocket init` also ensures `AGENTS.md` contains the marker-delimited
-project knowledge instructions. Use `--no-agents` to create only the store.
+By default, `codedocket init` also ensures `AGENTS.md` contains marker-delimited
+project-memory instructions. Use `--no-agents` to create only the store.
 
 ### `codedocket setup`
 
-Configure agent clients to call `codedocket serve` over MCP and install the shared
-instruction snippet where supported.
+Configure agent clients to call `codedocket serve` over MCP and install the
+shared instruction snippet where supported.
 
 ```sh
 codedocket setup
@@ -138,54 +181,31 @@ codedocket setup --clients codex,claude --scope global --yes
 codedocket setup --clients opencode --scope project --skip-install
 ```
 
-Flags:
-
-| flag | meaning |
+| Flag | Meaning |
 |---|---|
-| `--clients` | comma-separated clients: `opencode`, `claude`, `cursor`, `codex`, `zcode`, `kiro` |
+| `--clients` | Comma-separated clients: `opencode`, `claude`, `cursor`, `codex`, `zcode`, `kiro` |
 | `--scope` | `global` or `project`; defaults to interactive selection, or `global` with `--yes` |
-| `--skip-install` | do not copy the current binary to `~/.local/bin/codedocket` |
-| `--yes` | use non-interactive defaults |
+| `--skip-install` | Do not copy the current binary to `~/.local/bin/codedocket` |
+| `--yes` | Use non-interactive defaults |
 
-### `codedocket note`
+### `codedocket explore`
 
-Capture an observation mid-task with zero structure — one sentence, no key,
-no kind. Notes land in gitignored per-session scratch
-(`.codedocket/sessions/<id>/notes.json`) and are reviewed later via
-`finalize`. Flags go before the text.
+Retrieve knowledge. This is the read path agents should call before touching
+unfamiliar code.
 
 ```sh
-codedocket note --path internal/merge/ "merge never infers; conflicts are caller-explicit"
-codedocket note "evidence count ranks but never qualifies"
+codedocket explore
+codedocket explore --query "extraction pipeline"
+codedocket explore --path internal/merge/merge.go
+codedocket explore --kind decision
+codedocket explore --key storage.format
+codedocket explore --include-superseded
+codedocket explore --json
 ```
 
-Agents capture through the MCP tool `codedocket_note` instead.
-
-### `codedocket finalize`
-
-The consolidation moment: renders the pending session's notes as numbered
-proposals plus capped git evidence and the review instructions — record each
-proposal with `codedocket record` (passing the session id and the note text
-as provenance) or skip it deliberately. Writes a mechanical `finalized.json`
-marker; surfaces a `⚠` footnote for sessions that were finalized but produced
-no records (the follow-through check); prunes finalized scratch older than 14
-days. Never calls an LLM, never writes the store.
-
-```sh
-codedocket finalize                 # newest pending session
-codedocket finalize --all           # every pending session (sweeps stale ones)
-codedocket finalize --session ID --reopen   # un-finalize for re-review
-```
-
-### `codedocket hook stop`
-
-The gate Stop hooks invoke — what `setup` registers for you. Silent allow
-(exit 0, empty stdout) when nothing is pending; otherwise the client's block
-shape with a reason the still-active agent receives as its next instruction.
-
-```sh
-codedocket hook stop --client zcode   # claude | codex | zcode | kiro
-```
+Ranking is deterministic: scope matches outweigh keyword matches, evidence
+count breaks ties, then recency, then key. Same store plus same query gives the
+same output.
 
 ### `codedocket record`
 
@@ -196,73 +216,97 @@ codedocket record --key storage.format --kind decision \
   --statement "Single JSON file, git-committed." \
   --scope .
 
-# Confirming/refining an existing topic: record the same key again.
-# The statement updates in place and evidence accumulates.
-
-# Replacing an old decision: record the new key and supersede the old one.
 codedocket record --key extract.smart-caller --kind decision \
   --statement "The calling agent performs extraction." \
   --scope mcp/ --supersedes extract.own-pipeline
 ```
 
-Flags: `--key --kind --statement --scope a,b [--supersedes k1,k2] [--session] [--note]`
-(`--scope` and `--supersedes` are comma-separated; `--session` defaults to `cli`).
+| Flag | Meaning |
+|---|---|
+| `--key` | Stable dot-case topic key |
+| `--kind` | `decision`, `constraint`, `bug`, `assumption`, `rationale`, or `fact` |
+| `--statement` | Current position, usually one or two sentences |
+| `--scope` | Comma-separated paths; `.` means project-wide |
+| `--supersedes` | Optional comma-separated keys replaced by this entry |
+| `--session` | Optional provenance session; defaults to `cli` |
+| `--note` | Optional evidence note |
+
+Recording the same key again refines the statement in place and appends
+evidence.
+
+### `codedocket note`
+
+Capture an observation mid-task with no key and no kind. Notes land in
+gitignored per-session scratch under `.codedocket/sessions/<id>/notes.json` and
+are reviewed later through `finalize`.
+
+```sh
+codedocket note --path internal/merge/ "merge never infers; conflicts are caller-explicit"
+codedocket note "evidence count ranks but never qualifies"
+```
+
+Agents can capture through the MCP tool `codedocket_note`.
+
+### `codedocket finalize`
+
+Render pending session notes as numbered proposals plus capped git evidence.
+The command never calls an LLM and never writes the knowledge store directly.
+The agent or human records accepted proposals and skips the rest deliberately.
+
+```sh
+codedocket finalize
+codedocket finalize --all
+codedocket finalize --session ID --reopen
+```
+
+Finalized scratch older than the retention window is pruned; pending sessions
+are never auto-pruned.
+
+### `codedocket hook stop`
+
+The Stop-hook gate registered by `setup`. It allows exit silently when nothing
+is pending. If notes need review, it blocks the agent's stop and injects the
+finalize instruction while the agent is still in context.
+
+```sh
+codedocket hook stop --client codex
+codedocket hook stop --client claude
+codedocket hook stop --client zcode
+```
 
 ### `codedocket dispute`
 
-Flag an entry as contested when you believe it's wrong but can't yet replace
-it. Disputed entries **stay visible** — that's the point: a human should weigh
-in. To *correct* knowledge, use `record` instead (same key, or new key +
-`--supersedes`).
+Flag an entry as contested when you believe it is wrong but cannot yet replace
+it. Disputed entries stay visible. To correct knowledge, use `record` instead.
 
 ```sh
 codedocket dispute --key merge.conflicts --note "keys keep colliding"
 ```
 
-### `codedocket explore`
+## Design Principles
 
-Retrieve knowledge — the read path, and the actual point of the tool.
+| Principle | Practical effect |
+|---|---|
+| Dumb store, smart caller | Humans or agents decide what to record; CodeDocket handles bookkeeping |
+| Deterministic merge | Same store plus same operation gives the same result |
+| Git as the history of record | Review project memory with normal code review tools |
+| No deletion of knowledge | Superseded and disputed entries remain inspectable |
+| Scoped retrieval | Path-specific queries surface relevant constraints before edits |
+| Zero runtime dependencies | The Go binary uses the standard library only |
 
-```sh
-codedocket explore                                        # list everything (ranked)
-codedocket explore --query "extraction pipeline"          # keyword search
-codedocket explore --path internal/merge/merge.go         # knowledge scoped to a path
-codedocket explore --kind decision                        # filter by kind
-codedocket explore --key storage.format                   # exact lookup (even superseded)
-codedocket explore --include-superseded                   # reveal historical positions
-codedocket explore --json                                 # machine-readable output
+## Project Layout
+
+```text
+|-- cmd/codedocket/          # CLI, MCP server, setup, hooks
+|-- types.go                 # Knowledge / Evidence / Edge / Store / QueryOpts
+|-- store.go                 # Load/Save: atomic writes, diff-stable JSON
+|-- merge.go                 # Record/Dispute: deterministic merge rules
+|-- query.go                 # Retrieval: filter, score, sort
+`-- *_test.go
 ```
 
-Ranking is deterministic: scope matches outweigh keyword matches, evidence
-count breaks ties, then recency, then key. Same store + same query = same
-output, every time.
-
-Example human output:
-
-```
-merge.deterministic  [decision]  (evidence: 2)
-  Merge never infers; explicit only.
-  scope: internal/  updated: 2026-08-06
-
-merge.conflicts  [assumption, DISPUTED]  (evidence: 1)
-  Conflicts will be rare at small scale.
-  scope: internal/merge/  updated: 2026-08-05
-```
-
-## Project layout
-
-```
-├── cmd/codedocket/          # the codedocket CLI (flag-based subcommands, one binary)
-│   └── main.go  init.go  setup.go  record.go  dispute.go  explore.go
-├── types.go          # Knowledge / Evidence / Edge / Store / QueryOpts
-├── store.go          # Load/Save: atomic writes, diff-stable JSON
-├── merge.go          # Record/Dispute: the deterministic merge rules
-├── query.go          # retrieval: filter → score → sort
-└── *_test.go
-```
-
-The root package `codedocket` holds all core semantics; the CLI is a thin
-presentation layer over it. Retrieval contract:
+The root package `codedocket` holds the core semantics; the CLI is a thin
+presentation layer over it.
 
 ```go
 func Query(s *Store, opts QueryOpts) []*Knowledge
@@ -270,26 +314,17 @@ func Query(s *Store, opts QueryOpts) []*Knowledge
 
 ## Roadmap
 
-- **M1/M2 — done.** Core package (store, deterministic merge, query) and the
-  `codedocket` CLI (`init`, `record`, `dispute`, `explore`), dogfooded on this repo's
-  own `.codedocket/` store.
-- **M3 — done.** `codedocket serve`: an MCP stdio server exposing `codedocket_record`,
-  `codedocket_explore`, and `codedocket_dispute` as tools so coding agents can read and
-  write project knowledge natively.
-- **M4 — done.** Onboarding: `init` bootstraps an AGENTS.md snippet into the
-  target repo, and `setup` configures supported agent clients for MCP.
-- **M6 — done.** Memory consolidation: `note` (cheap mid-task capture into
-  gitignored session scratch) → client **Stop hook** (`hook stop`, registered
-  by `setup` for Claude Code, Codex, and ZCode) blocks the agent's exit and
-  injects the finalize instruction while it is still in context → `finalize`
-  renders notes + git evidence as numbered proposals (no LLM) → the agent
-  records accepted ones via `record`. Worst case is delayed knowledge, never
-  lost knowledge.
+| Milestone | Status | Scope |
+|---|---|---|
+| M1/M2 | done | Core package, deterministic store, CLI commands, dogfooding on this repo |
+| M3 | done | MCP stdio server exposing `codedocket_record`, `codedocket_explore`, and `codedocket_dispute` |
+| M4 | done | Agent onboarding through `init`, `setup`, and shared instructions |
+| M6 | done | Session notes, finalize proposals, Stop-hook gate for Claude Code, Codex, and ZCode |
 
 ## Development
 
 ```sh
-gofmt -l .        # must be clean
-go vet ./...      # must be clean
-go test ./...     # must be green
+gofmt -l .
+go vet ./...
+go test ./...
 ```
