@@ -48,6 +48,15 @@ record it so the next session does not rediscover it:
   new key + ` + "`supersedes`" + `.
 - ` + "`codedocket_dispute`" + ` flags knowledge as contested; it is not a correction mechanism —
   correct by recording.
+
+**Capture without interrupting.** Structure on demand, not mid-execution:
+- Mid-task, when you learn something non-obvious but are busy executing:
+  ` + "`codedocket_note`" + ` (MCP) / ` + "`codedocket note \"one sentence\"`" + ` (CLI) —
+  no key, no kind; it is reviewed at session end.
+- When finishing (your client's Stop hook may insist): run
+  ` + "`codedocket finalize`" + `, then for each proposal record it — ` + "`codedocket_record`" + `
+  with the note text as evidence note and the session id shown — or skip it
+  deliberately.
 ` + markerEnd + `
 `
 
@@ -58,8 +67,10 @@ func ensureAgentsSnippet(repoDir string) (string, error) {
 }
 
 // ensureMarkdownSnippet makes sure dir/<name> carries the codedocket snippet.
-// It never clobbers existing content. Returns the outcome: "present",
-// "created", or "appended".
+// It never clobbers existing content outside its own marker block. Returns
+// the outcome: "present", "created", "appended", or "updated" (the markers
+// were present but held an older snippet, replaced in place — the upgrade
+// path for every repo onboarded before a snippet revision).
 func ensureMarkdownSnippet(dir, name string) (string, error) {
 	path := filepath.Join(dir, name)
 
@@ -74,8 +85,26 @@ func ensureMarkdownSnippet(dir, name string) (string, error) {
 		return "", fmt.Errorf("reading AGENTS.md: %w", err)
 	}
 
-	if bytes.Contains(data, []byte(markerBegin)) {
-		return "present", nil
+	if i := bytes.Index(data, []byte(markerBegin)); i >= 0 {
+		j := bytes.Index(data[i:], []byte(markerEnd))
+		if j < 0 {
+			return "present", nil // malformed (begin without end): leave untouched
+		}
+		end := i + j + len(markerEnd)
+		// The snippet constant ends with a newline after markerEnd; the
+		// extracted block stops at the marker, so compare trimmed.
+		want := bytes.TrimSuffix([]byte(agentsSnippet), []byte("\n"))
+		if bytes.Equal(data[i:end], want) {
+			return "present", nil
+		}
+		out := make([]byte, 0, len(data))
+		out = append(out, data[:i]...)
+		out = append(out, []byte(agentsSnippet)...)
+		out = append(out, data[end:]...)
+		if err := os.WriteFile(path, out, 0o644); err != nil {
+			return "", fmt.Errorf("updating AGENTS.md snippet: %w", err)
+		}
+		return "updated", nil
 	}
 
 	sep := []byte("\n\n")

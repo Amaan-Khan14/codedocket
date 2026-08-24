@@ -28,4 +28,14 @@ record it so the next session does not rediscover it:
   new key + `supersedes`.
 - `codedocket_dispute` flags knowledge as contested; it is not a correction mechanism —
   correct by recording.
+
+**Capture without interrupting.** Structure on demand, not mid-execution:
+- Mid-task, when you learn something non-obvious but are busy executing:
+  `codedocket_note` (MCP) / `codedocket note "one sentence"` (CLI) —
+  no key, no kind; it is reviewed at session end.
+- When finishing (your client's Stop hook may insist): run
+  `codedocket finalize`, then for each proposal record it — `codedocket_record`
+  with the note text as evidence note and the session id shown — or skip it
+  deliberately.
 <!-- codedocket:end -->
+

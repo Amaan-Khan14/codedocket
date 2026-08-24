@@ -89,9 +89,15 @@ func setupCtx(args []string) error {
 			if c.GlobalMD != "" {
 				report = append(report, applyMarkdown(c.Label, filepath.Join(home, c.GlobalMD)))
 			}
+			if c.HookGlobal != "" && c.mergeHook != nil {
+				report = append(report, applyJSONOrTOML(c.Label+" Stop hook", filepath.Join(home, c.HookGlobal), c.mergeHook, binPath))
+			}
 		} else {
 			if c.ProjectConfig != "" {
 				report = append(report, applyJSONOrTOML(c.Label, filepath.Join(cwd, c.ProjectConfig), c.merge, binPath))
+			}
+			if c.HookProject != "" && c.mergeHook != nil {
+				report = append(report, applyJSONOrTOML(c.Label+" Stop hook", filepath.Join(cwd, c.HookProject), c.mergeHook, binPath))
 			}
 		}
 	}
@@ -108,19 +114,19 @@ func setupCtx(args []string) error {
 
 func selectClients(home, csv string, interactive bool) ([]clientDef, error) {
 	if csv != "" {
-		var out []clientDef
 		names := map[string]clientDef{}
+		var known []string
 		for _, c := range knownClients {
-			names[strings.ToLower(c.Label)] = c
+			names[c.Name] = c
+			known = append(known, c.Name)
 		}
-		names["claude"] = knownClients[1]
-		names["codex"] = knownClients[3]
+		var out []clientDef
 		for _, name := range strings.Split(csv, ",") {
 			name = strings.TrimSpace(strings.ToLower(name))
 			if c, ok := names[name]; ok {
 				out = append(out, c)
 			} else {
-				return nil, fmt.Errorf("unknown client %q (known: opencode, claude, cursor, codex)", name)
+				return nil, fmt.Errorf("unknown client %q (known: %s)", name, strings.Join(known, ", "))
 			}
 		}
 		return out, nil
@@ -213,35 +219,72 @@ func applyMarkdown(label, path string) string {
 }
 
 // installSelf copies the running binary to ~/.local/bin/codedocket.
+// Running setup FROM the installed location is normal (setup --yes after
+// onboarding): copying a file onto itself with O_TRUNC would zero it, so
+// same-path is a no-op success.
 func installSelf(home string) (string, error) {
 	target := filepath.Join(home, ".local", "bin", "codedocket")
-	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-		return "", err
-	}
 	execPath, err := os.Executable()
 	if err != nil {
 		return "", fmt.Errorf("locating executable: %w", err)
 	}
-	src, err := os.Open(execPath)
-	if err != nil {
-		return "", err
-	}
-	defer src.Close()
-	dst, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
-	if err != nil {
-		return "", err
-	}
-	if _, err := io.Copy(dst, src); err != nil {
-		dst.Close()
-		return "", err
-	}
-	if err := dst.Close(); err != nil {
+	if err := installBinary(execPath, target); err != nil {
 		return "", err
 	}
 	if !strings.Contains(os.Getenv("PATH"), filepath.Dir(target)) {
 		fmt.Fprintf(os.Stderr, "note: %s is not on your PATH (add: export PATH=$PATH:%s)\n", filepath.Dir(target), filepath.Dir(target))
 	}
 	return target, nil
+}
+
+// installBinary copies srcPath to target, no-op when they are one file
+// (O_TRUNC onto the open source would truncate it to zero bytes).
+func installBinary(srcPath, target string) error {
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		return err
+	}
+	if same, err := sameFile(srcPath, target); err == nil && same {
+		return nil
+	}
+	src, err := os.Open(srcPath)
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+	dst, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(dst, src); err != nil {
+		dst.Close()
+		return err
+	}
+	return dst.Close()
+}
+
+// sameFile reports whether two paths refer to one file, tolerating
+// symlinks and relative paths.
+func sameFile(a, b string) (bool, error) {
+	ra, err := filepath.EvalSymlinks(a)
+	if err != nil {
+		return false, err
+	}
+	rb, err := filepath.EvalSymlinks(b)
+	if err != nil {
+		return false, err
+	}
+	if ra == rb {
+		return true, nil
+	}
+	ia, err := os.Stat(ra)
+	if err != nil {
+		return false, err
+	}
+	ib, err := os.Stat(rb)
+	if err != nil {
+		return false, err
+	}
+	return os.SameFile(ia, ib), nil
 }
 
 // --- tiny interactive helpers (numbered/plain text: zero TUI deps) ---

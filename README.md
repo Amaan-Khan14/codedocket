@@ -95,6 +95,8 @@ Supported clients:
 | Claude Code | `~/.claude.json` | `.mcp.json` | `~/.claude/CLAUDE.md` |
 | Cursor | `~/.cursor/mcp.json` | `.cursor/mcp.json` | none |
 | Codex CLI | `~/.codex/config.toml` | not supported in V1 | `~/.codex/AGENTS.md` |
+| ZCode | `~/.zcode/cli/config.json` | `.zcode/config.json` | `~/.zcode/AGENTS.md` |
+| Kiro | `~/.kiro/settings/mcp.json` | `.kiro/settings/mcp.json` | none |
 
 You can also configure an MCP client manually:
 
@@ -140,10 +142,50 @@ Flags:
 
 | flag | meaning |
 |---|---|
-| `--clients` | comma-separated clients: `opencode`, `claude`, `cursor`, `codex` |
+| `--clients` | comma-separated clients: `opencode`, `claude`, `cursor`, `codex`, `zcode`, `kiro` |
 | `--scope` | `global` or `project`; defaults to interactive selection, or `global` with `--yes` |
 | `--skip-install` | do not copy the current binary to `~/.local/bin/codedocket` |
 | `--yes` | use non-interactive defaults |
+
+### `codedocket note`
+
+Capture an observation mid-task with zero structure — one sentence, no key,
+no kind. Notes land in gitignored per-session scratch
+(`.codedocket/sessions/<id>/notes.json`) and are reviewed later via
+`finalize`. Flags go before the text.
+
+```sh
+codedocket note --path internal/merge/ "merge never infers; conflicts are caller-explicit"
+codedocket note "evidence count ranks but never qualifies"
+```
+
+Agents capture through the MCP tool `codedocket_note` instead.
+
+### `codedocket finalize`
+
+The consolidation moment: renders the pending session's notes as numbered
+proposals plus capped git evidence and the review instructions — record each
+proposal with `codedocket record` (passing the session id and the note text
+as provenance) or skip it deliberately. Writes a mechanical `finalized.json`
+marker; surfaces a `⚠` footnote for sessions that were finalized but produced
+no records (the follow-through check); prunes finalized scratch older than 14
+days. Never calls an LLM, never writes the store.
+
+```sh
+codedocket finalize                 # newest pending session
+codedocket finalize --all           # every pending session (sweeps stale ones)
+codedocket finalize --session ID --reopen   # un-finalize for re-review
+```
+
+### `codedocket hook stop`
+
+The gate Stop hooks invoke — what `setup` registers for you. Silent allow
+(exit 0, empty stdout) when nothing is pending; otherwise the client's block
+shape with a reason the still-active agent receives as its next instruction.
+
+```sh
+codedocket hook stop --client zcode   # claude | codex | zcode | kiro
+```
 
 ### `codedocket record`
 
@@ -236,6 +278,13 @@ func Query(s *Store, opts QueryOpts) []*Knowledge
   write project knowledge natively.
 - **M4 — done.** Onboarding: `init` bootstraps an AGENTS.md snippet into the
   target repo, and `setup` configures supported agent clients for MCP.
+- **M6 — done.** Memory consolidation: `note` (cheap mid-task capture into
+  gitignored session scratch) → client **Stop hook** (`hook stop`, registered
+  by `setup` for Claude Code, Codex, and ZCode) blocks the agent's exit and
+  injects the finalize instruction while it is still in context → `finalize`
+  renders notes + git evidence as numbered proposals (no LLM) → the agent
+  records accepted ones via `record`. Worst case is delayed knowledge, never
+  lost knowledge.
 
 ## Development
 

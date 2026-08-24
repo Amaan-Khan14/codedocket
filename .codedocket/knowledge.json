@@ -37,6 +37,24 @@
       "created": "2026-08-14T22:20:42.342239+05:30",
       "updated": "2026-08-14T22:20:42.342239+05:30"
     },
+    "dogfood.capture-gap": {
+      "key": "dogfood.capture-gap",
+      "kind": "fact",
+      "statement": "Two weeks of dogfooding across multiple agents (Codex, Kimi, Kiro) shows explore is called reliably but record almost never is: agents will not interrupt execution mode to produce a structured entry (key/kind/statement/scope) at the moment of discovery.",
+      "scope": [
+        "."
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode",
+          "note": "From M6 planning discussion with Kiro; observed by owner across ~2 weeks.",
+          "at": "2026-08-22T14:47:08.826387+05:30"
+        }
+      ],
+      "created": "2026-08-22T14:47:08.826387+05:30",
+      "updated": "2026-08-22T14:47:08.826387+05:30"
+    },
     "explore.render-blocks": {
       "key": "explore.render-blocks",
       "kind": "fact",
@@ -91,6 +109,131 @@
       "created": "2026-08-08T16:28:45.255581+05:30",
       "updated": "2026-08-08T16:28:45.255581+05:30"
     },
+    "hooks.config-paths": {
+      "key": "hooks.config-paths",
+      "kind": "fact",
+      "statement": "Stop-hook registration: claude = ~/.claude/settings.json hooks.Stop[] (exec-form handler {type:command,command,args}); codex = ~/.codex/config.toml [[hooks.Stop]]+[[hooks.Stop.hooks]] (single command string; hooks.json is an alternative layout); zcode = ~/.zcode/cli/config.json hooks.events.Stop[] (type:process) and REQUIRES hooks.enabled=true, project-level hook configs are ignored by ZCode; kiro hooks are IDE-managed markdown steering files, not file-configurable (registration deferred).",
+      "scope": [
+        "cmd/codedocket/setup_clients.go"
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode",
+          "note": "Verified against docs 2026-08-22; presence markers must be path/name independent.",
+          "at": "2026-08-22T21:04:26.862101+05:30"
+        }
+      ],
+      "created": "2026-08-22T21:04:26.862101+05:30",
+      "updated": "2026-08-22T21:04:26.862101+05:30"
+    },
+    "hooks.stop-capability": {
+      "key": "hooks.stop-capability",
+      "kind": "fact",
+      "statement": "Claude Code, Codex, ZCode, and Kiro all expose a Stop hook that can block the agent's stop with a reason injected as its next instruction. ZCode caps consecutive stop-blocks at 3, so the hook must allow stop when nothing is pending. opencode/cursor Stop-hook capability unverified.",
+      "scope": [
+        "cmd/codedocket/"
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode",
+          "note": "From official docs of each client, 2026-08-22.",
+          "at": "2026-08-22T16:26:45.593344+05:30"
+        }
+      ],
+      "created": "2026-08-22T16:26:45.593344+05:30",
+      "updated": "2026-08-22T16:26:45.593344+05:30"
+    },
+    "hooks.wire-shapes": {
+      "key": "hooks.wire-shapes",
+      "kind": "fact",
+      "statement": "Stop-hook block shapes: claude/codex/zcode take compact {\"decision\":\"block\",\"reason\":\"...\"} on stdout with exit 0 and empty-stdout-allow; kiro has no JSON decision contract — Agent Stop feeds successful-hook stdout (plain text) into the agent's context. The hook's block reason must select the gated client's own newest pending session by FirstAt, not by lexicographic id (ids sort by client name first).",
+      "scope": [
+        "hook.go"
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode",
+          "note": "Docs verified 2026-08-22; claude re-verification pending rate limit, live e2e in M6 Task 6.",
+          "at": "2026-08-22T20:53:16.492902+05:30"
+        }
+      ],
+      "created": "2026-08-22T20:53:16.492902+05:30",
+      "updated": "2026-08-22T20:53:16.492902+05:30"
+    },
+    "m6.architecture": {
+      "key": "m6.architecture",
+      "kind": "decision",
+      "statement": "M6 memory consolidation: cheap unstructured note during work -\u003e per-session gitignored scratch (.codedocket/sessions/) -\u003e client Stop hook blocks agent stop and injects 'run codedocket finalize' while the agent is still in context -\u003e finalize aggregates notes + git evidence into numbered proposals (no LLM, no store writes) -\u003e agent records accepted ones via record. Worst case is delayed knowledge, never lost.",
+      "scope": [
+        "."
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode",
+          "note": "Validated against Claude Code, Codex, ZCode, Kiro Stop-hook docs 2026-08-22.",
+          "at": "2026-08-22T16:26:39.57068+05:30"
+        }
+      ],
+      "created": "2026-08-22T16:26:39.57068+05:30",
+      "updated": "2026-08-22T16:26:39.57068+05:30"
+    },
+    "m6.shipped": {
+      "key": "m6.shipped",
+      "kind": "fact",
+      "statement": "M6 shipped on feat/m6-memory-consolidation (Tasks 0-6): note, finalize, hook stop, setup Stop-hook registration for claude/codex/zcode (kiro deferred - hooks are IDE-managed steering files), snippet v2, README. Full loop dogfooded live on the real store (a7101cb). Pending: owner restart of ZCode for the live gated-session check, merge to main, tag v0.4.0.",
+      "scope": [
+        "."
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode",
+          "at": "2026-08-22T21:46:24.937013+05:30"
+        }
+      ],
+      "created": "2026-08-22T21:46:24.937013+05:30",
+      "updated": "2026-08-22T21:46:24.937013+05:30"
+    },
+    "mcp.session-provenance": {
+      "key": "mcp.session-provenance",
+      "kind": "decision",
+      "statement": "The MCP server generates one sessionID at initialize and uses it for both the notes scratch dir and record's default session field (replacing bare clientInfo.name), so finalize's follow-through footnote can join records to sessions exactly. CLI record --session stays free-form; the finalize review copy instructs --session \u003cid\u003e.",
+      "scope": [
+        "internal/mcp/"
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode",
+          "note": "Surfaced while curating M6 Task 1: footnote join requires exact id match.",
+          "at": "2026-08-22T17:05:20.972652+05:30"
+        }
+      ],
+      "created": "2026-08-22T17:05:20.972652+05:30",
+      "updated": "2026-08-22T17:05:20.972652+05:30"
+    },
+    "mcp.tool-list-frozen-at-start": {
+      "key": "mcp.tool-list-frozen-at-start",
+      "kind": "fact",
+      "statement": "An MCP server's tool surface is fixed at session start: rebuilding the codedocket binary mid-session (e.g. adding codedocket_note) does not expose new tools to the running client until the server is restarted.",
+      "scope": [
+        "internal/mcp/"
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "cli-20260822T155906Z",
+          "note": "MCP servers capture their tool list at session start; a binary rebuilt mid-session with new tools only serves them after the client restarts",
+          "at": "2026-08-22T21:29:24.437501+05:30"
+        }
+      ],
+      "created": "2026-08-22T21:29:24.437501+05:30",
+      "updated": "2026-08-22T21:29:24.437501+05:30"
+    },
     "merge.deterministic-rules": {
       "key": "merge.deterministic-rules",
       "kind": "decision",
@@ -135,6 +278,24 @@
       "created": "2026-08-08T16:28:45.262774+05:30",
       "updated": "2026-08-08T16:28:45.262774+05:30"
     },
+    "note.session-identity": {
+      "key": "note.session-identity",
+      "kind": "fact",
+      "statement": "CLI note reuses the newest pending session whose id has prefix \u003cname\u003e- (many invocations, one logical session); MCP uses one sessionID generated at initialize for the notes dir AND record/dispute provenance defaults. Go's stdlib flag means CLI flags must precede the positional text.",
+      "scope": [
+        "notes.go"
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode",
+          "note": "M6 Task 1 implemented (commit 7a96012).",
+          "at": "2026-08-22T20:22:50.147522+05:30"
+        }
+      ],
+      "created": "2026-08-22T20:22:50.147522+05:30",
+      "updated": "2026-08-22T20:22:50.147522+05:30"
+    },
     "onboarding.agents-snippet": {
       "key": "onboarding.agents-snippet",
       "kind": "decision",
@@ -152,6 +313,42 @@
       ],
       "created": "2026-08-12T15:14:20.279656+05:30",
       "updated": "2026-08-12T15:14:20.279656+05:30"
+    },
+    "onboarding.snippet-v2": {
+      "key": "onboarding.snippet-v2",
+      "kind": "fact",
+      "statement": "Snippet v2 adds the capture section (codedocket_note mid-task, finalize when the Stop hook insists, record-or-skip deliberately) and ensureMarkdownSnippet now upgrades stale marker blocks in place (outcome \"updated\", surrounding content preserved, malformed marker pairs untouched) — repos onboarded pre-v2 upgrade on their next init/setup run.",
+      "scope": [
+        "cmd/codedocket/agents.go"
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode",
+          "note": "M6 Tasks 5+6 complete; upgrade dogfooded on this repo's AGENTS.md and ~/.zcode/AGENTS.md.",
+          "at": "2026-08-22T21:46:24.9312+05:30"
+        }
+      ],
+      "created": "2026-08-22T21:46:24.9312+05:30",
+      "updated": "2026-08-22T21:46:24.9312+05:30"
+    },
+    "ops.zero-byte-exec-silent": {
+      "key": "ops.zero-byte-exec-silent",
+      "kind": "fact",
+      "statement": "Executing a zero-byte binary on macOS returns exit 0 with no output: a corrupted CLI fails completely silently, which masks data-loss incidents (observed when codedocket's self-install truncated its own binary).",
+      "scope": [
+        "cmd/codedocket/setup.go"
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "cli-20260822T162534Z",
+          "note": "executing a zero-byte binary on macOS exits 0 silently - a corrupted CLI fails without any error output",
+          "at": "2026-08-22T21:55:56.457419+05:30"
+        }
+      ],
+      "created": "2026-08-22T21:55:56.457419+05:30",
+      "updated": "2026-08-22T21:55:56.457419+05:30"
     },
     "product.rename-codedocket": {
       "key": "product.rename-codedocket",
@@ -207,6 +404,42 @@
       "created": "2026-08-12T15:06:21.967333+05:30",
       "updated": "2026-08-12T15:08:37.422849+05:30"
     },
+    "sessions.finalized-basis": {
+      "key": "sessions.finalized-basis",
+      "kind": "decision",
+      "statement": "Finalized vs pending is a mechanical marker written by the finalize command at render completion (timestamp + note count); the stop hook checks only marker presence. No human is involved at marking time. Follow-through is verified deterministically via evidence.session provenance: the next finalize footnotes finalized-but-zero-records sessions within the retention window.",
+      "scope": [
+        "."
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode",
+          "note": "Closes the render-but-never-record gap; raised in M6 design review.",
+          "at": "2026-08-22T16:59:49.369002+05:30"
+        }
+      ],
+      "created": "2026-08-22T16:59:49.369002+05:30",
+      "updated": "2026-08-22T16:59:49.369002+05:30"
+    },
+    "sessions.scratch-lifecycle": {
+      "key": "sessions.scratch-lifecycle",
+      "kind": "decision",
+      "statement": "Session scratch files are pruned, not kept forever: finalize removes session dirs that are both finalized and older than the retention window (default 14 days); pending sessions are never auto-pruned. Provenance survives via evidence.note in accepted records. The never-delete invariant applies to knowledge.json only, never to scratch.",
+      "scope": [
+        "."
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode",
+          "note": "Raised in M6 design review: long-lived projects would otherwise accumulate hundreds of session dirs.",
+          "at": "2026-08-22T16:57:30.839684+05:30"
+        }
+      ],
+      "created": "2026-08-22T16:57:30.839684+05:30",
+      "updated": "2026-08-22T16:57:30.839684+05:30"
+    },
     "setup.agent-onboarding": {
       "key": "setup.agent-onboarding",
       "kind": "decision",
@@ -225,6 +458,24 @@
       "created": "2026-08-14T21:17:57.156426+05:30",
       "updated": "2026-08-14T21:17:57.156426+05:30"
     },
+    "setup.client-paths": {
+      "key": "setup.client-paths",
+      "kind": "fact",
+      "statement": "ZCode MCP config: ~/.zcode/cli/config.json (global) and .zcode/config.json (project) with nested mcp.servers shape; instructions at ~/.zcode/AGENTS.md. Kiro: ~/.kiro/settings/mcp.json (global) and .kiro/settings/mcp.json (project) with standard mcpServers shape; steering files are multi-file, out of scope V1.",
+      "scope": [
+        "cmd/codedocket/setup_clients.go"
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode",
+          "note": "ZCode paths verified against its own configuration guide; Kiro against docs + local ~/.kiro/settings layout.",
+          "at": "2026-08-22T16:26:45.596525+05:30"
+        }
+      ],
+      "created": "2026-08-22T16:26:45.596525+05:30",
+      "updated": "2026-08-22T16:26:45.596525+05:30"
+    },
     "setup.npx-executable-path": {
       "key": "setup.npx-executable-path",
       "kind": "bug",
@@ -241,6 +492,42 @@
       ],
       "created": "2026-08-16T22:18:03.929724+05:30",
       "updated": "2026-08-16T22:18:03.929724+05:30"
+    },
+    "setup.presence-markers": {
+      "key": "setup.presence-markers",
+      "kind": "constraint",
+      "statement": "Idempotency markers in config merges must not depend on the binary name or path: JSON hook upserts match exact handler argv and update the command field on drift; TOML matches the subcommand signature (hook stop --client \u003cname\u003e). A codedocket-name-based literal duplicated blocks on every run for dev builds named codedocket-*.",
+      "scope": [
+        "cmd/codedocket/setup_clients.go"
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode",
+          "note": "Bug caught in Task 4 smoke; unit tests now use non-codedocket paths to prevent regression.",
+          "at": "2026-08-22T21:04:26.866318+05:30"
+        }
+      ],
+      "created": "2026-08-22T21:04:26.866318+05:30",
+      "updated": "2026-08-22T21:04:26.866318+05:30"
+    },
+    "setup.self-install-truncation": {
+      "key": "setup.self-install-truncation",
+      "kind": "bug",
+      "statement": "installSelf opened the running executable for read and the same target path with O_TRUNC: running setup from ~/.local/bin/codedocket zeroed the binary in place (silent no-op execs afterwards). Fixed by splitting installBinary and no-op-ing when source and target are one file (EvalSymlinks + os.SameFile).",
+      "scope": [
+        "cmd/codedocket/setup.go"
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode",
+          "note": "Found by M6 dogfood: records silently vanished; regression test pins same-path copy.",
+          "at": "2026-08-22T21:46:24.934152+05:30"
+        }
+      ],
+      "created": "2026-08-22T21:46:24.934152+05:30",
+      "updated": "2026-08-22T21:46:24.934152+05:30"
     },
     "storage.git-as-history": {
       "key": "storage.git-as-history",
@@ -275,6 +562,46 @@
       ],
       "created": "2026-08-08T16:28:45.273096+05:30",
       "updated": "2026-08-08T16:28:45.273096+05:30"
+    },
+    "workflow.feature-branches": {
+      "key": "workflow.feature-branches",
+      "kind": "decision",
+      "statement": "Post-release (v0.3.x) feature work lands on feature branches (e.g. feat/m6-memory-consolidation) and merges to main when the milestone is done; main stays releasable at all times.",
+      "scope": [
+        "."
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode",
+          "at": "2026-08-22T16:26:45.600216+05:30"
+        }
+      ],
+      "created": "2026-08-22T16:26:45.600216+05:30",
+      "updated": "2026-08-22T16:26:45.600216+05:30"
+    },
+    "workflow.verify-commands": {
+      "key": "workflow.verify-commands",
+      "kind": "decision",
+      "statement": "Every completed-work handoff includes a copy-paste verification block that is PASTE-SAFE: no inline shell comments (they get mangled into arguments on multi-line paste), expected output stated in prose before or after the block, one command per line.",
+      "scope": [
+        "."
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode",
+          "note": "Owner feedback 2026-08-22: agent-reported verification is not independently checkable without commands.",
+          "at": "2026-08-22T16:40:48.481442+05:30"
+        },
+        {
+          "session": "zcode",
+          "note": "Refines earlier convention: user's paste showed # comments becoming go test package args.",
+          "at": "2026-08-22T20:55:25.811693+05:30"
+        }
+      ],
+      "created": "2026-08-22T16:40:48.481442+05:30",
+      "updated": "2026-08-22T20:55:25.811693+05:30"
     }
   },
   "edges": [

@@ -7,6 +7,7 @@ import (
 	"github.com/Amaan-Khan14/codedocket"
 	"io"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -33,6 +34,11 @@ const (
 )
 
 var clientName string // captured from initialize
+
+// sessionID is generated once per server process at initialize and used for
+// BOTH the notes scratch dir and record/dispute provenance defaults, so
+// finalize can join records to sessions exactly (mcp.session-provenance).
+var sessionID string
 
 // ServerInfoVersion is reported in the initialize handshake; stamped by
 // release builds via ldflags.
@@ -79,6 +85,7 @@ func handleInitialize(id *json.RawMessage, params json.RawMessage) []byte {
 	if clientName == "" {
 		clientName = "unknown"
 	}
+	sessionID = codedocket.NewSessionID(clientName)
 
 	result := map[string]interface{}{
 		"protocolVersion": req.ProtocolVersion,
@@ -161,7 +168,26 @@ func handleToolsList(id *json.RawMessage) []byte {
 					},
 					"session": map[string]interface{}{
 						"type":        "string",
-						"description": "Session identifier (defaults to client name)",
+						"description": "Session identifier (defaults to this session)",
+					},
+				},
+			},
+		},
+		{
+			"name":        "codedocket_note",
+			"description": "Capture a quick observation mid-task — one sentence, no structure. Call when you learn something non-obvious but are busy executing; you'll review it at session end via codedocket_finalize. Do not try to structure it (no key/kind/statement) — that happens later.",
+			"inputSchema": map[string]interface{}{
+				"type":     "object",
+				"required": []string{"text"},
+				"properties": map[string]interface{}{
+					"text": map[string]interface{}{
+						"type":        "string",
+						"description": "The observation, in one sentence",
+					},
+					"paths": map[string]interface{}{
+						"type":        "array",
+						"items":       map[string]string{"type": "string"},
+						"description": "Optional paths this note relates to",
 					},
 				},
 			},
@@ -183,7 +209,7 @@ func handleToolsList(id *json.RawMessage) []byte {
 					},
 					"session": map[string]interface{}{
 						"type":        "string",
-						"description": "Session identifier (defaults to client name)",
+						"description": "Session identifier (defaults to this session)",
 					},
 				},
 			},
@@ -206,14 +232,14 @@ func handleToolsCall(id *json.RawMessage, params json.RawMessage) []byte {
 
 	// Validate the tool name before touching the filesystem.
 	switch req.Name {
-	case "codedocket_explore", "codedocket_record", "codedocket_dispute":
+	case "codedocket_explore", "codedocket_record", "codedocket_dispute", "codedocket_note":
 	default:
 		return errorResponse(id, invalidParams, fmt.Sprintf("unknown tool: %s", req.Name))
 	}
 
 	// Resolve the store fresh for EVERY call: the file is shared mutable
 	// state and other sessions may write between our calls.
-	_, knowledgePath, err := codedocket.ResolveStore()
+	storeDir, knowledgePath, err := codedocket.ResolveStore()
 	if err != nil {
 		return toolError(id, "no .codedocket store found walking up from cwd; run `codedocket init`")
 	}
@@ -223,9 +249,27 @@ func handleToolsCall(id *json.RawMessage, params json.RawMessage) []byte {
 		return handleExplore(id, knowledgePath, req.Arguments)
 	case "codedocket_record":
 		return handleRecord(id, knowledgePath, req.Arguments)
+	case "codedocket_note":
+		return handleNote(id, storeDir, req.Arguments)
 	default: // codedocket_dispute
 		return handleDispute(id, knowledgePath, req.Arguments)
 	}
+}
+
+// handleNote is the cheap-capture path: no store access, scratch only.
+func handleNote(id *json.RawMessage, storeDir string, args map[string]interface{}) []byte {
+	text, _ := args["text"].(string)
+	if strings.TrimSpace(text) == "" {
+		return toolError(id, "note text is required")
+	}
+	if err := codedocket.EnsureSessionsGitignore(storeDir); err != nil {
+		return toolError(id, fmt.Sprintf("ensuring sessions gitignore: %v", err))
+	}
+	noteID, err := codedocket.AppendNote(storeDir, sessionID, text, toStringSlice(args["paths"]), time.Now())
+	if err != nil {
+		return toolError(id, err.Error())
+	}
+	return toolSuccess(id, fmt.Sprintf("noted #%d → %s", noteID, sessionID))
 }
 
 func handleExplore(id *json.RawMessage, knowledgePath string, args map[string]interface{}) []byte {
@@ -275,7 +319,7 @@ func handleRecord(id *json.RawMessage, knowledgePath string, args map[string]int
 	session, _ := args["session"].(string)
 
 	if session == "" {
-		session = clientName
+		session = sessionID
 	}
 
 	scope := toStringSlice(args["scope"])
@@ -321,7 +365,7 @@ func handleDispute(id *json.RawMessage, knowledgePath string, args map[string]in
 	session, _ := args["session"].(string)
 
 	if session == "" {
-		session = clientName
+		session = sessionID
 	}
 
 	if _, err := codedocket.Dispute(store, key, session, note, time.Now()); err != nil {

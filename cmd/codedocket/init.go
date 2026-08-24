@@ -48,6 +48,11 @@ func initCtx(args []string) error {
 	if err := store.Save(knowledgeFilePath); err != nil {
 		return fmt.Errorf("initializing knowledge store: %w", err)
 	}
+	// Sessions scratch is hygiene, not agent onboarding — always ensured,
+	// never fatal (first note re-ensures lazily for pre-M6 stores).
+	if err := codedocket.EnsureSessionsGitignore(ctxDir); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: sessions gitignore not written: %v\n", err)
+	}
 
 	fmt.Printf("initialized codedocket at %s\n", ctxDir)
 	onboardAgents(repoDir, *noAgents)

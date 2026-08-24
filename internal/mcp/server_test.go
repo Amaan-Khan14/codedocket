@@ -27,9 +27,9 @@ func TestHandleMessage(t *testing.T) {
 			wantNil: true,
 		},
 		{
-			name:     "tools/list returns 3 tools",
+			name:     "tools/list returns 4 tools",
 			input:    `{"jsonrpc":"2.0","id":2,"method":"tools/list"}`,
-			contains: []string{`"codedocket_explore"`, `"codedocket_record"`, `"codedocket_dispute"`, `"inputSchema"`},
+			contains: []string{`"codedocket_explore"`, `"codedocket_record"`, `"codedocket_dispute"`, `"codedocket_note"`, `"inputSchema"`},
 		},
 		{
 			name:     "unknown method returns error",
@@ -150,6 +150,70 @@ func TestToolCalls(t *testing.T) {
 
 		if !strings.Contains(string(resp), "unknown tool") {
 			t.Errorf("expected unknown tool error, got: %s", resp)
+		}
+	})
+
+	t.Run("note round-trips to scratch, not the store", func(t *testing.T) {
+		msg := `{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"codedocket_note","arguments":{"text":"merge rules live in merge.go and never infer","paths":["merge.go"]}}}`
+		resp := handleMessage([]byte(msg))
+
+		if !strings.Contains(string(resp), "noted #1") || !strings.Contains(string(resp), sessionID) {
+			t.Errorf("expected note confirmation, got: %s", resp)
+		}
+
+		// Scratch file exists under the initialize-time session id...
+		notesPath := filepath.Join(ctxDir, "sessions", sessionID, "notes.json")
+		b, err := os.ReadFile(notesPath)
+		if err != nil {
+			t.Fatalf("notes file missing: %v", err)
+		}
+		if !strings.Contains(string(b), "merge rules live in merge.go") {
+			t.Errorf("note text missing from scratch: %s", b)
+		}
+
+		// ...and the knowledge store is untouched.
+		store, err := codedocket.Load(knowledgePath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(store.Knowledge) != 1 {
+			t.Errorf("note must not write the store; entries = %d", len(store.Knowledge))
+		}
+
+		// sessions/ is gitignored.
+		gi, err := os.ReadFile(filepath.Join(ctxDir, ".gitignore"))
+		if err != nil || !strings.Contains(string(gi), "sessions/") {
+			t.Errorf("sessions gitignore missing: %q, %v", gi, err)
+		}
+	})
+
+	t.Run("empty note text rejected", func(t *testing.T) {
+		msg := `{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"codedocket_note","arguments":{"text":"   "}}}`
+		resp := handleMessage([]byte(msg))
+
+		if !strings.Contains(string(resp), "note text is required") {
+			t.Errorf("expected empty-text error, got: %s", resp)
+		}
+	})
+
+	t.Run("record provenance defaults to sessionID", func(t *testing.T) {
+		msg := `{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"codedocket_record","arguments":{"key":"provenance.test","kind":"fact","statement":"session provenance","scope":["."]}}}`
+		resp := handleMessage([]byte(msg))
+
+		if !strings.Contains(string(resp), "recorded provenance.test") {
+			t.Errorf("expected success, got: %s", resp)
+		}
+
+		store, err := codedocket.Load(knowledgePath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		k := store.Knowledge["provenance.test"]
+		if k == nil || len(k.Evidence) == 0 {
+			t.Fatalf("provenance.test missing or evidenceless: %+v", k)
+		}
+		if k.Evidence[0].Session != sessionID {
+			t.Errorf("evidence session = %q, want initialize-time sessionID %q", k.Evidence[0].Session, sessionID)
 		}
 	})
 }
