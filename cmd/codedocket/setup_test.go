@@ -367,3 +367,54 @@ func mkdir(t *testing.T, root, rel string) {
 		t.Fatal(err)
 	}
 }
+
+// Regression: the JSON merges used to splice binPath into a JSON string
+// literal, so a Windows path (C:\Users\...) — or any path with a quote or
+// backslash — produced an invalid JSON escape and made setup fail. The
+// entries are now built as Go values and marshaled.
+func TestMergeJSONHandlesWindowsPaths(t *testing.T) {
+	winBin := `C:\Users\dev\.local\bin\codedocket.exe`
+	quotedBin := `/opt/odd "quote"/codedocket`
+
+	for _, bin := range []string{winBin, quotedBin} {
+		merges := []struct {
+			name    string
+			fn      func([]byte, string) ([]byte, bool, error)
+			where   []string
+			command func(entry map[string]interface{}) interface{}
+		}{
+			{"opencode", mergeOpencodeJSON, []string{"mcp", "codedocket"}, func(e map[string]interface{}) interface{} {
+				return e["command"].([]interface{})[0]
+			}},
+			{"mcpServers", mergeMCPServersJSON, []string{"mcpServers", "codedocket"}, func(e map[string]interface{}) interface{} {
+				return e["command"]
+			}},
+			{"zcode", mergeZcodeJSON, []string{"mcp", "servers", "codedocket"}, func(e map[string]interface{}) interface{} {
+				return e["command"]
+			}},
+		}
+		for _, m := range merges {
+			merged, changed, err := m.fn(nil, bin)
+			if err != nil || !changed {
+				t.Fatalf("%s %q: changed=%v err=%v", m.name, bin, changed, err)
+			}
+			var root map[string]interface{}
+			if err := json.Unmarshal(merged, &root); err != nil {
+				t.Fatalf("%s %q: output not valid JSON: %v", m.name, bin, err)
+			}
+			cur := root
+			for _, sec := range m.where[:len(m.where)-1] {
+				cur = cur[sec].(map[string]interface{})
+			}
+			entry := cur[m.where[len(m.where)-1]].(map[string]interface{})
+			if got := m.command(entry); got != bin {
+				t.Fatalf("%s %q: command=%v", m.name, bin, got)
+			}
+			// Idempotency must hold for exotic paths too.
+			_, changed2, err := m.fn(merged, bin)
+			if err != nil || changed2 {
+				t.Fatalf("%s %q: rerun changed=%v err=%v", m.name, bin, changed2, err)
+			}
+		}
+	}
+}

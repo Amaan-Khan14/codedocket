@@ -102,11 +102,17 @@ var knownClients = []clientDef{
 // mergeOpencodeJSON upserts mcp.codedocket into opencode's { "mcp": { ... } } map,
 // preserving all unrelated keys. Whole-file rewrite with sorted keys; a
 // .bak is made by the caller before writing.
+//
+// The desired entry is built as a Go value and marshaled, never spliced into
+// a JSON string literal: on Windows binPath contains backslashes, which are
+// invalid JSON escapes and made the old concatenation form fail on every
+// JSON client. Values use []interface{} (not []string) so the idempotency
+// DeepEqual in mergeNestedMap matches the shape json.Unmarshal produces.
 func mergeOpencodeJSON(existing []byte, binPath string) ([]byte, bool, error) {
-	var want map[string]interface{}
-	if err := json.Unmarshal([]byte(
-		`{"type":"local","command":["`+binPath+`","serve"],"enabled":true}`), &want); err != nil {
-		return nil, false, err // binPath escaping bug; unreachable for sane paths
+	want := map[string]interface{}{
+		"type":    "local",
+		"command": []interface{}{binPath, "serve"},
+		"enabled": true,
 	}
 	return mergeNestedMap(existing, []string{"mcp", "codedocket"}, want)
 }
@@ -114,10 +120,9 @@ func mergeOpencodeJSON(existing []byte, binPath string) ([]byte, bool, error) {
 // mergeMCPServersJSON upserts the { "mcpServers": { "codedocket": ... } } shape used
 // by Claude Code, Cursor, and Kiro.
 func mergeMCPServersJSON(existing []byte, binPath string) ([]byte, bool, error) {
-	var want map[string]interface{}
-	if err := json.Unmarshal([]byte(
-		`{"command":"`+binPath+`","args":["serve"]}`), &want); err != nil {
-		return nil, false, err // binPath escaping bug; unreachable for sane paths
+	want := map[string]interface{}{
+		"command": binPath,
+		"args":    []interface{}{"serve"},
 	}
 	return mergeNestedMap(existing, []string{"mcpServers", "codedocket"}, want)
 }
@@ -125,10 +130,9 @@ func mergeMCPServersJSON(existing []byte, binPath string) ([]byte, bool, error) 
 // mergeZcodeJSON upserts the { "mcp": { "servers": { "codedocket": ... } } } shape
 // used by ZCode's .zcode/cli/config.json.
 func mergeZcodeJSON(existing []byte, binPath string) ([]byte, bool, error) {
-	var want map[string]interface{}
-	if err := json.Unmarshal([]byte(
-		`{"command":"`+binPath+`","args":["serve"]}`), &want); err != nil {
-		return nil, false, err
+	want := map[string]interface{}{
+		"command": binPath,
+		"args":    []interface{}{"serve"},
 	}
 	return mergeNestedMap(existing, []string{"mcp", "servers", "codedocket"}, want)
 }
