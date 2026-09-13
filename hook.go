@@ -13,7 +13,7 @@ import (
 
 // SupportedHookClients lists the clients whose Stop-hook contracts
 // StopHookResponse can speak.
-var SupportedHookClients = []string{"claude", "codex", "zcode", "kiro"}
+var SupportedHookClients = []string{"claude", "codex", "zcode", "kiro", "cursor"}
 
 type stopBlock struct {
 	Decision string `json:"decision"`
@@ -23,12 +23,14 @@ type stopBlock struct {
 // StopHookResponse returns the stdout a client's Stop hook should emit for
 // the given pending sessions: "" (silent allow) when nothing is pending,
 // the client's block shape otherwise. Shapes verified against each
-// client's docs 2026-08-22 (claude/codex/zcode: decision+reason JSON;
-// kiro: Agent Stop feeds plain-text stdout into the agent's context, no
-// JSON decision contract). Unknown client → error.
+// client's docs (claude/codex/zcode 2026-08-22: decision+reason JSON;
+// kiro 2026-08-22: Agent Stop feeds plain-text stdout into the agent's
+// context, no JSON decision contract; cursor 2026-09-14: a non-empty
+// "followup_message" is submitted as the agent's next user message).
+// Unknown client → error.
 func StopHookResponse(client string, pending []SessionInfo) (string, error) {
 	if !supportedClient(client) {
-		return "", fmt.Errorf("unsupported client %q (supported: claude, codex, zcode, kiro)", client)
+		return "", fmt.Errorf("unsupported client %q (supported: %s)", client, strings.Join(SupportedHookClients, ", "))
 	}
 	if len(pending) == 0 {
 		return "", nil // silence is required — noise on every stop gets the hook uninstalled
@@ -36,6 +38,13 @@ func StopHookResponse(client string, pending []SessionInfo) (string, error) {
 	reason := StopBlockReason(client, pending)
 	if client == "kiro" {
 		return reason, nil
+	}
+	if client == "cursor" {
+		b, err := json.Marshal(map[string]string{"followup_message": reason})
+		if err != nil {
+			return "", err
+		}
+		return string(b), nil
 	}
 	b, err := json.Marshal(stopBlock{Decision: "block", Reason: reason})
 	if err != nil {

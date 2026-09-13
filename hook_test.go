@@ -46,6 +46,17 @@ func TestStopHookResponseShapes(t *testing.T) {
 	if got != reason || strings.Contains(got, `"decision"`) {
 		t.Errorf("kiro must emit plain text, got: %s", got)
 	}
+
+	// Cursor (verified against cursor.com/docs/hooks 2026-09-14): the stop
+	// continues via a non-empty followup_message the client submits as the
+	// next user message — no decision/reason object.
+	got, err = StopHookResponse("cursor", pending)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != `{"followup_message":"`+reason+`"}` {
+		t.Errorf("cursor shape mismatch:\n got: %s", got)
+	}
 }
 
 func TestStopHookResponseSilentAllow(t *testing.T) {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	codedocket "github.com/Amaan-Khan14/codedocket"
 )
@@ -18,7 +19,7 @@ import (
 // spend them).
 func hookCtx(args []string) error {
 	if len(args) == 0 || args[0] != "stop" {
-		return fmt.Errorf("usage: codedocket hook stop --client <claude|codex|zcode|kiro>")
+		return fmt.Errorf("usage: codedocket hook stop --client <%s>", strings.Join(codedocket.SupportedHookClients, "|"))
 	}
 	fs := flag.NewFlagSet("hook stop", flag.ExitOnError)
 	client := fs.String("client", "", "client whose Stop-hook contract to speak")
@@ -26,7 +27,7 @@ func hookCtx(args []string) error {
 		return err
 	}
 	if *client == "" {
-		return fmt.Errorf("--client is required (claude, codex, zcode, kiro)")
+		return fmt.Errorf("--client is required (%s)", strings.Join(codedocket.SupportedHookClients, ", "))
 	}
 
 	knowledgePath, err := mustStore()
