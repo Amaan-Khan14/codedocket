@@ -431,6 +431,24 @@
       "created": "2026-08-24T20:44:20.153701+05:30",
       "updated": "2026-08-24T20:48:03.087869+05:30"
     },
+    "release.v0.5.0": {
+      "key": "release.v0.5.0",
+      "kind": "fact",
+      "statement": "v0.5.0 released 2026-09-14: npm wrapper bumped on main, tag pushed, goreleaser published the GitHub release with all six platform archives (names match install.js's codedocket_{platform}_{arch} pattern; darwin_arm64 asset verified reporting 0.5.0), release notes curated over the raw commit list, and npm published at 0.5.0.",
+      "scope": [
+        "."
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode-20260913T193359Z",
+          "note": "Evidence: proposal #3, session zcode-20260913T193359Z. One self-caught error: the curated release notes initially referenced a nonexistent install.sh; corrected to npm install -g codedocket.",
+          "at": "2026-09-14T02:16:04.797769+05:30"
+        }
+      ],
+      "created": "2026-09-14T02:16:04.797769+05:30",
+      "updated": "2026-09-14T02:16:04.797769+05:30"
+    },
     "scope.global-retained": {
       "key": "scope.global-retained",
       "kind": "decision",
@@ -597,6 +615,25 @@
       ],
       "created": "2026-08-22T21:46:24.934152+05:30",
       "updated": "2026-08-22T21:46:24.934152+05:30"
+    },
+    "setup.self-install-vs-npm-prefix": {
+      "key": "setup.self-install-vs-npm-prefix",
+      "kind": "constraint",
+      "statement": "When npm's global prefix is ~/.local, `npm install -g codedocket` places its launcher symlink at ~/.local/bin/codedocket — the exact path setup's self-install uses — replacing the standalone binary in place. On such machines the npm-managed path wins: upgrades are `npm update -g codedocket` and setup's self-install must NOT be run (it would overwrite the symlink with a static copy npm can no longer upgrade).",
+      "scope": [
+        "cmd/codedocket/setup.go",
+        "npm/codedocket/"
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode-20260913T193359Z",
+          "note": "Evidence: proposal #4, session zcode-20260913T193359Z. Observed on this machine (npm prefix -g = ~/.local); generalizes to any npm prefix set to ~/.local. Hook and MCP delegation through the launcher verified working (hook stop exit 0 silent allow; MCP initialize serverInfo 0.5.0).",
+          "at": "2026-09-14T02:16:04.823296+05:30"
+        }
+      ],
+      "created": "2026-09-14T02:16:04.823296+05:30",
+      "updated": "2026-09-14T02:16:04.823296+05:30"
     },
     "storage.git-as-history": {
       "key": "storage.git-as-history",
