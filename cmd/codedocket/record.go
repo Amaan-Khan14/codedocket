@@ -45,11 +45,6 @@ func recordCtx(args []string) error {
 		return err
 	}
 
-	store, err := codedocket.Load(knowledgeFilePath)
-	if err != nil {
-		return err
-	}
-
 	in := codedocket.RecordInput{
 		Key:        *key,
 		Kind:       *kind,
@@ -60,19 +55,26 @@ func recordCtx(args []string) error {
 		Note:       *note,
 	}
 
-	k, created, err := codedocket.Record(store, in, time.Now())
+	// Load→record→save under the store lock so concurrent writers (other
+	// MCP servers, another CLI) cannot drop this record's update.
+	var created bool
+	var evidence int
+	err = codedocket.Update(knowledgeFilePath, func(store *codedocket.Store) error {
+		k, c, err := codedocket.Record(store, in, time.Now())
+		if err != nil {
+			return err
+		}
+		created, evidence = c, len(k.Evidence)
+		return nil
+	})
 	if err != nil {
-		return err
-	}
-
-	if err := store.Save(knowledgeFilePath); err != nil {
 		return err
 	}
 
 	if created {
 		fmt.Printf("recorded %s\n", *key)
 	} else {
-		fmt.Printf("updated %s (evidence: %d)\n", *key, len(k.Evidence))
+		fmt.Printf("updated %s (evidence: %d)\n", *key, evidence)
 	}
 
 	return nil

@@ -367,3 +367,121 @@ func mkdir(t *testing.T, root, rel string) {
 		t.Fatal(err)
 	}
 }
+
+// Regression: the JSON merges used to splice binPath into a JSON string
+// literal, so a Windows path (C:\Users\...) — or any path with a quote or
+// backslash — produced an invalid JSON escape and made setup fail. The
+// entries are now built as Go values and marshaled.
+func TestMergeJSONHandlesWindowsPaths(t *testing.T) {
+	winBin := `C:\Users\dev\.local\bin\codedocket.exe`
+	quotedBin := `/opt/odd "quote"/codedocket`
+
+	for _, bin := range []string{winBin, quotedBin} {
+		merges := []struct {
+			name    string
+			fn      func([]byte, string) ([]byte, bool, error)
+			where   []string
+			command func(entry map[string]interface{}) interface{}
+		}{
+			{"opencode", mergeOpencodeJSON, []string{"mcp", "codedocket"}, func(e map[string]interface{}) interface{} {
+				return e["command"].([]interface{})[0]
+			}},
+			{"mcpServers", mergeMCPServersJSON, []string{"mcpServers", "codedocket"}, func(e map[string]interface{}) interface{} {
+				return e["command"]
+			}},
+			{"zcode", mergeZcodeJSON, []string{"mcp", "servers", "codedocket"}, func(e map[string]interface{}) interface{} {
+				return e["command"]
+			}},
+		}
+		for _, m := range merges {
+			merged, changed, err := m.fn(nil, bin)
+			if err != nil || !changed {
+				t.Fatalf("%s %q: changed=%v err=%v", m.name, bin, changed, err)
+			}
+			var root map[string]interface{}
+			if err := json.Unmarshal(merged, &root); err != nil {
+				t.Fatalf("%s %q: output not valid JSON: %v", m.name, bin, err)
+			}
+			cur := root
+			for _, sec := range m.where[:len(m.where)-1] {
+				cur = cur[sec].(map[string]interface{})
+			}
+			entry := cur[m.where[len(m.where)-1]].(map[string]interface{})
+			if got := m.command(entry); got != bin {
+				t.Fatalf("%s %q: command=%v", m.name, bin, got)
+			}
+			// Idempotency must hold for exotic paths too.
+			_, changed2, err := m.fn(merged, bin)
+			if err != nil || changed2 {
+				t.Fatalf("%s %q: rerun changed=%v err=%v", m.name, bin, changed2, err)
+			}
+		}
+	}
+}
+
+func TestMergeCursorStopHookJSON(t *testing.T) {
+	bin := "/home/u/.local/bin/codedocket"
+
+	// Fresh file: version + hooks.stop[] created, our entry appended.
+	merged, changed, err := mergeCursorStopHookJSON(nil, bin)
+	if err != nil || !changed {
+		t.Fatalf("fresh: changed=%v err=%v", changed, err)
+	}
+	var root map[string]interface{}
+	if err := json.Unmarshal(merged, &root); err != nil {
+		t.Fatal(err)
+	}
+	if root["version"] != float64(1) {
+		t.Fatalf("version: %v", root["version"])
+	}
+	stop := root["hooks"].(map[string]interface{})["stop"].([]interface{})
+	if len(stop) != 1 {
+		t.Fatalf("want one stop entry, got %d", len(stop))
+	}
+	entry := stop[0].(map[string]interface{})
+	if entry["type"] != "command" || entry["command"] != bin+" hook stop --client cursor" {
+		t.Fatalf("entry: %+v", entry)
+	}
+
+	// Idempotent: rerun on merged output is Unchanged.
+	merged2, changed2, err := mergeCursorStopHookJSON(merged, bin)
+	if err != nil || changed2 || string(merged2) != string(merged) {
+		t.Fatalf("rerun: changed=%v err=%v", changed2, err)
+	}
+
+	// binPath drift: command updated in place, no duplicate appended.
+	merged3, changed3, err := mergeCursorStopHookJSON(merged, "/new/bin")
+	if err != nil || !changed3 {
+		t.Fatalf("drift: changed=%v err=%v", changed3, err)
+	}
+	var root3 map[string]interface{}
+	json.Unmarshal(merged3, &root3)
+	stop3 := root3["hooks"].(map[string]interface{})["stop"].([]interface{})
+	if len(stop3) != 1 || stop3[0].(map[string]interface{})["command"] != "/new/bin hook stop --client cursor" {
+		t.Fatalf("drift entry: %+v", stop3)
+	}
+
+	// Foreign hooks and a pre-existing version are preserved untouched.
+	existing := []byte(`{"version": 2, "hooks": {"stop": [{"command": "./lint.sh", "type": "command"}], "beforeSubmitPrompt": [{"command": "./x.sh"}]}}`)
+	merged4, changed4, err := mergeCursorStopHookJSON(existing, bin)
+	if err != nil || !changed4 {
+		t.Fatalf("foreign: changed=%v err=%v", changed4, err)
+	}
+	var root4 map[string]interface{}
+	json.Unmarshal(merged4, &root4)
+	if root4["version"] != float64(2) {
+		t.Fatalf("foreign version clobbered: %v", root4["version"])
+	}
+	stop4 := root4["hooks"].(map[string]interface{})["stop"].([]interface{})
+	if len(stop4) != 2 {
+		t.Fatalf("foreign stop entries must survive: %+v", stop4)
+	}
+	if _, ok := root4["hooks"].(map[string]interface{})["beforeSubmitPrompt"]; !ok {
+		t.Fatal("unrelated hook event lost")
+	}
+
+	// Invalid JSON surfaces, nothing written.
+	if _, _, err := mergeCursorStopHookJSON([]byte(`{bad`), bin); err == nil {
+		t.Fatal("expected error on invalid JSON")
+	}
+}

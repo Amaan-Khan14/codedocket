@@ -1,6 +1,24 @@
 {
   "version": 1,
   "knowledge": {
+    "audit.issues-verified-2026-09": {
+      "key": "audit.issues-verified-2026-09",
+      "kind": "fact",
+      "statement": "A 2026-09-14 audit confirmed all seven reported issues as real: unlocked Load/mutate/Save in store.go, Windows-breaking JSON string concatenation in the three setup merge functions, missing Stop-hook support for opencode/cursor (a known deferral), tag-only CI, 22.9% cmd/codedocket test coverage, stale knowledge entries (m6.shipped, ctx-named entries), and a 0.3.2 vendored npm binary shipped under a 0.4.0 package.json.",
+      "scope": [
+        "."
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode-20260913T193359Z",
+          "note": "2026-09-14 issue audit verified all 7 reported defects as real: (1) store.go Load/mutate/Save has no locking or compare-and-swap anywhere in the repo — atomic temp+rename Save prevents torn files but last-writer-wins loses one agent's record; (2) setup_clients.go mergeOpencodeJSON/mergeMCPServersJSON/mergeZcodeJSON concatenate binPath into JSON literals so Windows backslash paths make json.Unmarshal fail (fails loudly, config untouched; Codex TOML path is safe via %q); (3) clientDef for opencode and cursor carries no HookGlobal/HookProject/mergeHook — knowledge records their Stop-hook capability as unverified, so this is a known deferral not an unnoticed bug; (4) release.yml is the only workflow and triggers solely on v* tags, so main has no test/vet/build gate; (5) coverage measured exactly 87.8% root / 22.9% cmd/codedocket / 87.3% internal/mcp, with only setup_test.go and agents_test.go in the CLI package; (6) m6.shipped still says pending merge-to-main/tag-v0.4.0 though merge commit 4459102 and tag v0.4.0 exist, and setup.agent-onboarding + onboarding.agents-snippet still say ctx/ctx:begin-end though the rename and codedocket:begin-end markers landed; (7) npm vendor binary prints 0.3.2 vs package.json 0.4.0 — nuance: install.js hard-fails on download error rather than falling back, the stale binary ships via files:[\"vendor/\"] and is silently used under --ignore-scripts or bypassed postinstall.",
+          "at": "2026-09-14T01:08:57.818275+05:30"
+        }
+      ],
+      "created": "2026-09-14T01:08:57.818275+05:30",
+      "updated": "2026-09-14T01:08:57.818275+05:30"
+    },
     "cli.before-mcp": {
       "key": "cli.before-mcp",
       "kind": "decision",
@@ -21,7 +39,7 @@
     "distribution.npm-wrapper": {
       "key": "distribution.npm-wrapper",
       "kind": "decision",
-      "statement": "CodeDocket publishes an unscoped npm package named codedocket; its postinstall downloads the matching GitHub release binary and the bin launcher delegates to that native executable, giving users npx/npm install without Go.",
+      "statement": "CodeDocket publishes an unscoped npm package named codedocket: postinstall downloads the matching GitHub release binary, the bin launcher delegates to it, and prepack rebuilds the gitignored vendor/ fallback binary (only exists on the publishing machine) with the package version stamped — --ignore-scripts skips the rebuild.",
       "scope": [
         "README.md",
         "npm/codedocket/"
@@ -32,10 +50,15 @@
           "session": "cli",
           "note": "Implemented for v0.3.1 wrapper release.",
           "at": "2026-08-14T22:20:42.342239+05:30"
+        },
+        {
+          "session": "zcode-20260913T193359Z",
+          "note": "Strengthened after the 0.3.2-vendor-while-package-0.4.0 incident: prepack.js added in acb9db9 so npm publish rebuilds vendor/ from the repo root with the package.json version stamped via goreleaser's ldflag.",
+          "at": "2026-09-14T01:38:52.126871+05:30"
         }
       ],
       "created": "2026-08-14T22:20:42.342239+05:30",
-      "updated": "2026-08-14T22:20:42.342239+05:30"
+      "updated": "2026-09-14T01:38:52.126871+05:30"
     },
     "dogfood.capture-gap": {
       "key": "dogfood.capture-gap",
@@ -130,9 +153,10 @@
     "hooks.stop-capability": {
       "key": "hooks.stop-capability",
       "kind": "fact",
-      "statement": "Claude Code, Codex, ZCode, and Kiro all expose a Stop hook that can block the agent's stop with a reason injected as its next instruction. ZCode caps consecutive stop-blocks at 3, so the hook must allow stop when nothing is pending. opencode/cursor Stop-hook capability unverified.",
+      "statement": "Claude Code, Codex, ZCode, Kiro, and Cursor all expose a Stop hook that can keep the agent working with a reason. Cursor verified 2026-09-14: hooks.json hooks.stop[] with a command shell string; block via followup_message; cloud agents don't run stop hooks. ZCode caps consecutive blocks at 3, so the hook must allow when nothing is pending. opencode has no config-file Stop hook (stop-equivalent is a TS plugin) — registration deferred; AGENTS.md covers it there.",
       "scope": [
-        "cmd/codedocket/"
+        "cmd/codedocket/",
+        "hook.go"
       ],
       "status": "active",
       "evidence": [
@@ -140,10 +164,15 @@
           "session": "zcode",
           "note": "From official docs of each client, 2026-08-22.",
           "at": "2026-08-22T16:26:45.593344+05:30"
+        },
+        {
+          "session": "zcode-20260913T193359Z",
+          "note": "Cursor Stop-hook capability verified against cursor.com/docs/hooks 2026-09-14 during the fix/audit-issues branch; implemented in b7666e2. opencode re-checked 2026-09-14: hooks live in TypeScript plugins (.opencode/plugins/), no JSON-config Stop hook — deferral stands.",
+          "at": "2026-09-14T01:37:36.563738+05:30"
         }
       ],
       "created": "2026-08-22T16:26:45.593344+05:30",
-      "updated": "2026-08-22T16:26:45.593344+05:30"
+      "updated": "2026-09-14T01:37:36.563738+05:30"
     },
     "hooks.wire-shapes": {
       "key": "hooks.wire-shapes",
@@ -184,7 +213,7 @@
     "m6.shipped": {
       "key": "m6.shipped",
       "kind": "fact",
-      "statement": "M6 shipped on feat/m6-memory-consolidation (Tasks 0-6): note, finalize, hook stop, setup Stop-hook registration for claude/codex/zcode (kiro deferred - hooks are IDE-managed steering files), snippet v2, README. Full loop dogfooded live on the real store (a7101cb). Pending: owner restart of ZCode for the live gated-session check, merge to main, tag v0.4.0.",
+      "statement": "M6 (memory consolidation) is fully shipped: notes, finalize, hook stop, Stop-hook registration for claude/codex/zcode/cursor (kiro deferred — IDE-managed steering files), snippet v2. Merged to main (4459102), tag v0.4.0 cut, npm wrapper bumped to 0.4.0.",
       "scope": [
         "."
       ],
@@ -193,10 +222,15 @@
         {
           "session": "zcode",
           "at": "2026-08-22T21:46:24.937013+05:30"
+        },
+        {
+          "session": "zcode-20260913T193359Z",
+          "note": "Updated from the 2026-09-14 fix branch: the pending items listed by the original 2026-08-22 entry are all done — merge commit 4459102, npm wrapper bump 0fd8ace, tag v0.4.0 exists locally.",
+          "at": "2026-09-14T01:35:33.707893+05:30"
         }
       ],
       "created": "2026-08-22T21:46:24.937013+05:30",
-      "updated": "2026-08-22T21:46:24.937013+05:30"
+      "updated": "2026-09-14T01:35:33.707893+05:30"
     },
     "mcp.session-provenance": {
       "key": "mcp.session-provenance",
@@ -299,8 +333,9 @@
     "onboarding.agents-snippet": {
       "key": "onboarding.agents-snippet",
       "kind": "decision",
-      "statement": "ctx init bootstraps AGENTS.md with marker-delimited ctx instructions (ctx:begin/end markers); idempotent; init store-refusal unchanged; --no-agents opts out.",
+      "statement": "codedocket init bootstraps AGENTS.md with marker-delimited codedocket instructions (codedocket:begin/end markers); idempotent; init store-refusal unchanged; --no-agents opts out.",
       "scope": [
+        "cmd/codedocket/",
         "cmd/ctx/"
       ],
       "status": "active",
@@ -309,10 +344,15 @@
           "session": "m4-build",
           "note": "M4 implementation",
           "at": "2026-08-12T15:14:20.279656+05:30"
+        },
+        {
+          "session": "zcode-20260913T193359Z",
+          "note": "Renamed product ctx → codedocket (product.rename-codedocket); markers are now codedocket:begin/end (cmd/codedocket/agents.go), verified 2026-09-14.",
+          "at": "2026-09-14T01:37:18.185056+05:30"
         }
       ],
       "created": "2026-08-12T15:14:20.279656+05:30",
-      "updated": "2026-08-12T15:14:20.279656+05:30"
+      "updated": "2026-09-14T01:37:18.185056+05:30"
     },
     "onboarding.snippet-v2": {
       "key": "onboarding.snippet-v2",
@@ -466,8 +506,9 @@
     "setup.agent-onboarding": {
       "key": "setup.agent-onboarding",
       "kind": "decision",
-      "statement": "ctx setup configures supported agent clients for MCP by upserting a ctx server entry, installing the shared instruction snippet where supported, and optionally copying the binary to ~/.local/bin; Codex project-local TOML editing is deferred in V1.",
+      "statement": "codedocket setup configures supported agent clients for MCP by upserting a codedocket server entry, installing the shared instruction snippet where supported, and registering Stop hooks for claude/codex/zcode/cursor; Codex project-local TOML editing is deferred in V1.",
       "scope": [
+        "cmd/codedocket/",
         "cmd/ctx/"
       ],
       "status": "active",
@@ -476,10 +517,15 @@
           "session": "cli",
           "note": "Documented and prepared for v0.2.0 release.",
           "at": "2026-08-14T21:17:57.156426+05:30"
+        },
+        {
+          "session": "zcode-20260913T193359Z",
+          "note": "Renamed product ctx → codedocket (product.rename-codedocket); statement and scope updated from the 2026-09-14 audit to use current naming and the cmd/codedocket path.",
+          "at": "2026-09-14T01:37:18.159898+05:30"
         }
       ],
       "created": "2026-08-14T21:17:57.156426+05:30",
-      "updated": "2026-08-14T21:17:57.156426+05:30"
+      "updated": "2026-09-14T01:37:18.159898+05:30"
     },
     "setup.client-paths": {
       "key": "setup.client-paths",
@@ -569,6 +615,31 @@
       "created": "2026-08-08T16:28:45.266+05:30",
       "updated": "2026-08-08T16:28:45.266+05:30"
     },
+    "store.locking-design": {
+      "key": "store.locking-design",
+      "kind": "decision",
+      "statement": "Cross-process read-modify-write on the store goes through codedocket.Update, which holds a blocking exclusive advisory lock on \u003cstoreDir\u003e/.knowledge.lock for the whole Load→mutate→Save. The lock file is deliberately never unlinked (unlock-then-unlink races with waiters holding fds on the removed inode) — it is permanent and gitignored. Save stays lock-free and atomic; read-only paths (explore, finalize footnote) keep using Load.",
+      "scope": [
+        "lock_unix.go",
+        "lock_windows.go",
+        "store.go"
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode-20260913T193359Z",
+          "note": "Session zcode-20260913T193359Z on fix/audit-issues: regression test TestUpdateConcurrentRecordsAllSurvive fails (\"lost update\") when the lock is disabled, proving coverage of the original bug. Dependency kept at zero: lock primitives are build-tagged stdlib (syscall.Flock unix / syscall.LockFileEx windows).",
+          "at": "2026-09-14T01:38:07.709547+05:30"
+        },
+        {
+          "session": "zcode-20260913T193359Z",
+          "note": "Session zcode-20260913T193359Z on fix/audit-issues: regression test TestUpdateConcurrentRecordsAllSurvive fails (\"lost update\") when the lock is disabled, proving coverage of the original bug. Dependency kept at zero: lock primitives are build-tagged — syscall.Flock on unix, kernel32!LockFileEx via syscall.NewLazyDLL on Windows (CI caught that LockFileEx is NOT in stdlib syscall; it lives in x/sys/windows, which the dep-free module does not use).",
+          "at": "2026-09-14T01:49:03.214106+05:30"
+        }
+      ],
+      "created": "2026-09-14T01:38:07.709547+05:30",
+      "updated": "2026-09-14T01:49:03.214106+05:30"
+    },
     "structure.lazy-dirs": {
       "key": "structure.lazy-dirs",
       "kind": "decision",
@@ -585,6 +656,24 @@
       ],
       "created": "2026-08-08T16:28:45.273096+05:30",
       "updated": "2026-08-08T16:28:45.273096+05:30"
+    },
+    "testing.cli-coverage-mechanics": {
+      "key": "testing.cli-coverage-mechanics",
+      "kind": "constraint",
+      "statement": "Measured cmd/codedocket coverage requires in-process *Ctx drivers (captureStdout pipe + chdir cleanup in cli_inproc_test.go) because go test -cover cannot see into the separately built subprocess binary used by cli_test.go. Flag-parse failures and any os.Exit path (hookCtx unknown-client exits 2) must be asserted subprocess-only; ExitOnError would kill the test process in-process.",
+      "scope": [
+        "cmd/codedocket/"
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode-20260913T193359Z",
+          "note": "Evidence: proposal #2 of session zcode-20260913T193359Z — subprocess tests moved measured coverage only 22.9→26.2; in-process drivers took it to 55.2.",
+          "at": "2026-09-14T01:38:52.101196+05:30"
+        }
+      ],
+      "created": "2026-09-14T01:38:52.101196+05:30",
+      "updated": "2026-09-14T01:38:52.101196+05:30"
     },
     "workflow.feature-branches": {
       "key": "workflow.feature-branches",

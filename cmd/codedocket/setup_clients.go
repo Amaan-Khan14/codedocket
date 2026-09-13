@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 // clientDef describes one known agent client: how to detect it, where its
@@ -56,6 +57,13 @@ var knownClients = []clientDef{
 		GlobalMD:      "",
 		DetectDirs:    []string{".cursor"},
 		merge:         mergeMCPServersJSON,
+		// Stop hooks (verified against cursor.com/docs/hooks 2026-09-14):
+		// hooks.json at user (~/.cursor) and project level; our entry goes
+		// under hooks.stop[]. The hook continues the turn by printing
+		// {"followup_message": ...}, not the claude decision/reason shape.
+		HookGlobal:  ".cursor/hooks.json",
+		HookProject: ".cursor/hooks.json",
+		mergeHook:   mergeCursorStopHookJSON,
 	},
 	{
 		Name:          "codex",
@@ -102,11 +110,17 @@ var knownClients = []clientDef{
 // mergeOpencodeJSON upserts mcp.codedocket into opencode's { "mcp": { ... } } map,
 // preserving all unrelated keys. Whole-file rewrite with sorted keys; a
 // .bak is made by the caller before writing.
+//
+// The desired entry is built as a Go value and marshaled, never spliced into
+// a JSON string literal: on Windows binPath contains backslashes, which are
+// invalid JSON escapes and made the old concatenation form fail on every
+// JSON client. Values use []interface{} (not []string) so the idempotency
+// DeepEqual in mergeNestedMap matches the shape json.Unmarshal produces.
 func mergeOpencodeJSON(existing []byte, binPath string) ([]byte, bool, error) {
-	var want map[string]interface{}
-	if err := json.Unmarshal([]byte(
-		`{"type":"local","command":["`+binPath+`","serve"],"enabled":true}`), &want); err != nil {
-		return nil, false, err // binPath escaping bug; unreachable for sane paths
+	want := map[string]interface{}{
+		"type":    "local",
+		"command": []interface{}{binPath, "serve"},
+		"enabled": true,
 	}
 	return mergeNestedMap(existing, []string{"mcp", "codedocket"}, want)
 }
@@ -114,10 +128,9 @@ func mergeOpencodeJSON(existing []byte, binPath string) ([]byte, bool, error) {
 // mergeMCPServersJSON upserts the { "mcpServers": { "codedocket": ... } } shape used
 // by Claude Code, Cursor, and Kiro.
 func mergeMCPServersJSON(existing []byte, binPath string) ([]byte, bool, error) {
-	var want map[string]interface{}
-	if err := json.Unmarshal([]byte(
-		`{"command":"`+binPath+`","args":["serve"]}`), &want); err != nil {
-		return nil, false, err // binPath escaping bug; unreachable for sane paths
+	want := map[string]interface{}{
+		"command": binPath,
+		"args":    []interface{}{"serve"},
 	}
 	return mergeNestedMap(existing, []string{"mcpServers", "codedocket"}, want)
 }
@@ -125,10 +138,9 @@ func mergeMCPServersJSON(existing []byte, binPath string) ([]byte, bool, error) 
 // mergeZcodeJSON upserts the { "mcp": { "servers": { "codedocket": ... } } } shape
 // used by ZCode's .zcode/cli/config.json.
 func mergeZcodeJSON(existing []byte, binPath string) ([]byte, bool, error) {
-	var want map[string]interface{}
-	if err := json.Unmarshal([]byte(
-		`{"command":"`+binPath+`","args":["serve"]}`), &want); err != nil {
-		return nil, false, err
+	want := map[string]interface{}{
+		"command": binPath,
+		"args":    []interface{}{"serve"},
 	}
 	return mergeNestedMap(existing, []string{"mcp", "servers", "codedocket"}, want)
 }
@@ -181,14 +193,16 @@ func appendCodexTOML(existing []byte, binPath string) ([]byte, bool, error) {
 
 // --- Stop-hook registration (M6 Task 4) ---
 //
-// Shapes verified against each client's docs 2026-08-22:
-//   claude: settings.json  hooks.Stop[] groups, exec-form handlers
-//   codex:  config.toml    [[hooks.Stop]] / [[hooks.Stop.hooks]], command string
-//   zcode:  config.json    hooks.events.Stop[] groups + hooks.enabled=true
+// Shapes verified against each client's docs:
+//   claude:  settings.json  hooks.Stop[] groups, exec-form handlers (2026-08-22)
+//   codex:   config.toml    [[hooks.Stop]] / [[hooks.Stop.hooks]], command string (2026-08-22)
+//   zcode:   config.json    hooks.events.Stop[] groups + hooks.enabled=true (2026-08-22)
+//   cursor:  hooks.json     {version, hooks.stop[]}, command shell string (2026-09-14)
 // Presence: JSON clients match a handler whose args are exactly
 // ["hook","stop","--client",<name>] (path-independent, so reinstalls to a
-// new binPath never duplicate); the Codex TOML form matches its literal
-// command string.
+// new binPath never duplicate); Cursor and Codex have no argv array —
+// command is a single string — so they match the literal subcommand
+// signature instead.
 
 // mergeClaudeStopHookJSON appends our matcher group to hooks.Stop[].
 func mergeClaudeStopHookJSON(existing []byte, binPath string) ([]byte, bool, error) {
@@ -220,6 +234,65 @@ func mergeZcodeStopHookJSON(existing []byte, binPath string) ([]byte, bool, erro
 	}
 	return upsertStopHookArray(existing, []string{"hooks", "events", "Stop"}, group,
 		map[string]interface{}{"enabled": true}, "zcode")
+}
+
+// mergeCursorStopHookJSON upserts our entry into Cursor's
+// { "version": 1, "hooks": { "stop": [ ... ] } } (schema verified against
+// cursor.com/docs/hooks 2026-09-14). Unlike the claude/zcode arrays, a
+// Cursor entry has no args field: command is one shell string. Presence is
+// therefore the subcommand signature ("hook stop --client cursor"),
+// path-independent like the Codex TOML rule, with the command field updated
+// in place on binPath drift instead of duplicating.
+func mergeCursorStopHookJSON(existing []byte, binPath string) ([]byte, bool, error) {
+	root := map[string]interface{}{}
+	if len(bytes.TrimSpace(existing)) > 0 {
+		if err := json.Unmarshal(existing, &root); err != nil {
+			return nil, false, fmt.Errorf("existing config is not valid JSON (leaving untouched): %w", err)
+		}
+	}
+	changed := false
+	if _, ok := root["version"]; !ok {
+		root["version"] = 1
+		changed = true
+	}
+	hooks, _ := root["hooks"].(map[string]interface{})
+	if hooks == nil {
+		hooks = map[string]interface{}{}
+		root["hooks"] = hooks
+		changed = true
+	}
+	stop, _ := hooks["stop"].([]interface{})
+	wantCmd := binPath + " hook stop --client cursor"
+	present := false
+	for _, el := range stop {
+		hm, ok := el.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		cmd, _ := hm["command"].(string)
+		if strings.Contains(cmd, "hook stop --client cursor") {
+			present = true
+			if cmd != wantCmd {
+				hm["command"] = wantCmd
+				changed = true
+			}
+		}
+	}
+	if present && !changed {
+		return existing, false, nil
+	}
+	if !present {
+		hooks["stop"] = append(stop, map[string]interface{}{
+			"command": wantCmd,
+			"type":    "command",
+		})
+		changed = true
+	}
+	out, err := json.MarshalIndent(root, "", "  ")
+	if err != nil {
+		return nil, false, err
+	}
+	return append(out, '\n'), changed, nil
 }
 
 // appendCodexStopHookTOML appends a [[hooks.Stop]] group with one command

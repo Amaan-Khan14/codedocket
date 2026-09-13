@@ -35,8 +35,8 @@ func noteCtx(args []string) error {
 	}
 	storeDir := filepath.Dir(knowledgePath)
 
-	if err := codedocket.EnsureSessionsGitignore(storeDir); err != nil {
-		return fmt.Errorf("ensuring sessions gitignore: %w", err)
+	if err := codedocket.EnsureStoreGitignore(storeDir); err != nil {
+		return fmt.Errorf("ensuring store gitignore: %w", err)
 	}
 
 	// Reuse the newest pending session for this name — many CLI

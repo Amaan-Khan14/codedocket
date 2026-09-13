@@ -262,7 +262,7 @@ func handleNote(id *json.RawMessage, storeDir string, args map[string]interface{
 	if strings.TrimSpace(text) == "" {
 		return toolError(id, "note text is required")
 	}
-	if err := codedocket.EnsureSessionsGitignore(storeDir); err != nil {
+	if err := codedocket.EnsureStoreGitignore(storeDir); err != nil {
 		return toolError(id, fmt.Sprintf("ensuring sessions gitignore: %v", err))
 	}
 	noteID, err := codedocket.AppendNote(storeDir, sessionID, text, toStringSlice(args["paths"]), time.Now())
@@ -307,11 +307,6 @@ func handleExplore(id *json.RawMessage, knowledgePath string, args map[string]in
 }
 
 func handleRecord(id *json.RawMessage, knowledgePath string, args map[string]interface{}) []byte {
-	store, err := codedocket.Load(knowledgePath)
-	if err != nil {
-		return toolError(id, fmt.Sprintf("loading store: %v", err))
-	}
-
 	key, _ := args["key"].(string)
 	kind, _ := args["kind"].(string)
 	statement, _ := args["statement"].(string)
@@ -335,31 +330,32 @@ func handleRecord(id *json.RawMessage, knowledgePath string, args map[string]int
 		Note:       note,
 	}
 
-	k, created, err := codedocket.Record(store, input, time.Now())
-	if err != nil {
+	// Load→record→save under the store lock so concurrent writers (another
+	// client's MCP server, a CLI call) cannot drop this record's update.
+	var created bool
+	var evidence int
+	if err := codedocket.Update(knowledgePath, func(store *codedocket.Store) error {
+		k, c, err := codedocket.Record(store, input, time.Now())
+		if err != nil {
+			return err
+		}
+		created, evidence = c, len(k.Evidence)
+		return nil
+	}); err != nil {
 		return toolError(id, err.Error())
-	}
-
-	if err := store.Save(knowledgePath); err != nil {
-		return toolError(id, fmt.Sprintf("saving store: %v", err))
 	}
 
 	var msg string
 	if created {
 		msg = fmt.Sprintf("recorded %s", key)
 	} else {
-		msg = fmt.Sprintf("updated %s (evidence: %d)", key, len(k.Evidence))
+		msg = fmt.Sprintf("updated %s (evidence: %d)", key, evidence)
 	}
 
 	return toolSuccess(id, msg)
 }
 
 func handleDispute(id *json.RawMessage, knowledgePath string, args map[string]interface{}) []byte {
-	store, err := codedocket.Load(knowledgePath)
-	if err != nil {
-		return toolError(id, fmt.Sprintf("loading store: %v", err))
-	}
-
 	key, _ := args["key"].(string)
 	note, _ := args["note"].(string)
 	session, _ := args["session"].(string)
@@ -368,12 +364,12 @@ func handleDispute(id *json.RawMessage, knowledgePath string, args map[string]in
 		session = sessionID
 	}
 
-	if _, err := codedocket.Dispute(store, key, session, note, time.Now()); err != nil {
+	// Load→dispute→save under the store lock (same discipline as record).
+	if err := codedocket.Update(knowledgePath, func(store *codedocket.Store) error {
+		_, err := codedocket.Dispute(store, key, session, note, time.Now())
+		return err
+	}); err != nil {
 		return toolError(id, err.Error())
-	}
-
-	if err := store.Save(knowledgePath); err != nil {
-		return toolError(id, fmt.Sprintf("saving store: %v", err))
 	}
 
 	return toolSuccess(id, fmt.Sprintf("disputed %s", key))

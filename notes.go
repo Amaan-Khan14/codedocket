@@ -137,10 +137,11 @@ func LoadSessionNotes(storeDir, sessionID string) ([]Note, error) {
 	return sf.Notes, nil
 }
 
-// EnsureSessionsGitignore guarantees <storeDir>/.gitignore ignores sessions/.
-// Idempotent: appends only when the entry is absent, never clobbers foreign
-// content. Called by init and lazily by note (covers pre-M6 stores).
-func EnsureSessionsGitignore(storeDir string) error {
+// EnsureStoreGitignore guarantees <storeDir>/.gitignore ignores the session
+// scratch dir and the writer-lock file, keeping the store directory clean in
+// git status. Idempotent: appends only absent entries, never clobbers
+// foreign content. Called by init and lazily by note (covers pre-M6 stores).
+func EnsureStoreGitignore(storeDir string) error {
 	if err := os.MkdirAll(storeDir, 0o755); err != nil {
 		return fmt.Errorf("creating store dir: %w", err)
 	}
@@ -149,16 +150,24 @@ func EnsureSessionsGitignore(storeDir string) error {
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("reading .gitignore: %w", err)
 	}
-	for _, line := range strings.Split(string(existing), "\n") {
-		if strings.TrimSpace(line) == "sessions/" {
-			return nil
-		}
-	}
+	entries := []string{"sessions/", ".knowledge.lock"}
 	out := existing
-	if len(out) > 0 && !strings.HasSuffix(string(out), "\n") {
-		out = append(out, '\n')
+	for _, entry := range entries {
+		present := false
+		for _, line := range strings.Split(string(existing), "\n") {
+			if strings.TrimSpace(line) == entry {
+				present = true
+				break
+			}
+		}
+		if present {
+			continue
+		}
+		if len(out) > 0 && !strings.HasSuffix(string(out), "\n") {
+			out = append(out, '\n')
+		}
+		out = append(out, []byte(entry+"\n")...)
 	}
-	out = append(out, []byte("sessions/\n")...)
 	return os.WriteFile(path, out, 0o644)
 }
 
