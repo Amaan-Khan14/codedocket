@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -23,7 +24,12 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic(err)
 	}
+	// Windows exec refuses to launch a binary without the .exe extension,
+	// and `go build -o` writes the name verbatim.
 	cliBin = filepath.Join(dir, "codedocket-test-bin")
+	if runtime.GOOS == "windows" {
+		cliBin += ".exe"
+	}
 	build := exec.Command("go", "build", "-o", cliBin, ".")
 	var buildErr bytes.Buffer
 	build.Stderr = &buildErr

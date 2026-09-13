@@ -630,10 +630,15 @@
           "session": "zcode-20260913T193359Z",
           "note": "Session zcode-20260913T193359Z on fix/audit-issues: regression test TestUpdateConcurrentRecordsAllSurvive fails (\"lost update\") when the lock is disabled, proving coverage of the original bug. Dependency kept at zero: lock primitives are build-tagged stdlib (syscall.Flock unix / syscall.LockFileEx windows).",
           "at": "2026-09-14T01:38:07.709547+05:30"
+        },
+        {
+          "session": "zcode-20260913T193359Z",
+          "note": "Session zcode-20260913T193359Z on fix/audit-issues: regression test TestUpdateConcurrentRecordsAllSurvive fails (\"lost update\") when the lock is disabled, proving coverage of the original bug. Dependency kept at zero: lock primitives are build-tagged — syscall.Flock on unix, kernel32!LockFileEx via syscall.NewLazyDLL on Windows (CI caught that LockFileEx is NOT in stdlib syscall; it lives in x/sys/windows, which the dep-free module does not use).",
+          "at": "2026-09-14T01:49:03.214106+05:30"
         }
       ],
       "created": "2026-09-14T01:38:07.709547+05:30",
-      "updated": "2026-09-14T01:38:07.709547+05:30"
+      "updated": "2026-09-14T01:49:03.214106+05:30"
     },
     "structure.lazy-dirs": {
       "key": "structure.lazy-dirs",
