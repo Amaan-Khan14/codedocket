@@ -39,7 +39,7 @@
     "distribution.npm-wrapper": {
       "key": "distribution.npm-wrapper",
       "kind": "decision",
-      "statement": "CodeDocket publishes an unscoped npm package named codedocket; its postinstall downloads the matching GitHub release binary and the bin launcher delegates to that native executable, giving users npx/npm install without Go.",
+      "statement": "CodeDocket publishes an unscoped npm package named codedocket: postinstall downloads the matching GitHub release binary, the bin launcher delegates to it, and prepack rebuilds the gitignored vendor/ fallback binary (only exists on the publishing machine) with the package version stamped — --ignore-scripts skips the rebuild.",
       "scope": [
         "README.md",
         "npm/codedocket/"
@@ -50,10 +50,15 @@
           "session": "cli",
           "note": "Implemented for v0.3.1 wrapper release.",
           "at": "2026-08-14T22:20:42.342239+05:30"
+        },
+        {
+          "session": "zcode-20260913T193359Z",
+          "note": "Strengthened after the 0.3.2-vendor-while-package-0.4.0 incident: prepack.js added in acb9db9 so npm publish rebuilds vendor/ from the repo root with the package.json version stamped via goreleaser's ldflag.",
+          "at": "2026-09-14T01:38:52.126871+05:30"
         }
       ],
       "created": "2026-08-14T22:20:42.342239+05:30",
-      "updated": "2026-08-14T22:20:42.342239+05:30"
+      "updated": "2026-09-14T01:38:52.126871+05:30"
     },
     "dogfood.capture-gap": {
       "key": "dogfood.capture-gap",
@@ -610,6 +615,26 @@
       "created": "2026-08-08T16:28:45.266+05:30",
       "updated": "2026-08-08T16:28:45.266+05:30"
     },
+    "store.locking-design": {
+      "key": "store.locking-design",
+      "kind": "decision",
+      "statement": "Cross-process read-modify-write on the store goes through codedocket.Update, which holds a blocking exclusive advisory lock on \u003cstoreDir\u003e/.knowledge.lock for the whole Load→mutate→Save. The lock file is deliberately never unlinked (unlock-then-unlink races with waiters holding fds on the removed inode) — it is permanent and gitignored. Save stays lock-free and atomic; read-only paths (explore, finalize footnote) keep using Load.",
+      "scope": [
+        "lock_unix.go",
+        "lock_windows.go",
+        "store.go"
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode-20260913T193359Z",
+          "note": "Session zcode-20260913T193359Z on fix/audit-issues: regression test TestUpdateConcurrentRecordsAllSurvive fails (\"lost update\") when the lock is disabled, proving coverage of the original bug. Dependency kept at zero: lock primitives are build-tagged stdlib (syscall.Flock unix / syscall.LockFileEx windows).",
+          "at": "2026-09-14T01:38:07.709547+05:30"
+        }
+      ],
+      "created": "2026-09-14T01:38:07.709547+05:30",
+      "updated": "2026-09-14T01:38:07.709547+05:30"
+    },
     "structure.lazy-dirs": {
       "key": "structure.lazy-dirs",
       "kind": "decision",
@@ -626,6 +651,24 @@
       ],
       "created": "2026-08-08T16:28:45.273096+05:30",
       "updated": "2026-08-08T16:28:45.273096+05:30"
+    },
+    "testing.cli-coverage-mechanics": {
+      "key": "testing.cli-coverage-mechanics",
+      "kind": "constraint",
+      "statement": "Measured cmd/codedocket coverage requires in-process *Ctx drivers (captureStdout pipe + chdir cleanup in cli_inproc_test.go) because go test -cover cannot see into the separately built subprocess binary used by cli_test.go. Flag-parse failures and any os.Exit path (hookCtx unknown-client exits 2) must be asserted subprocess-only; ExitOnError would kill the test process in-process.",
+      "scope": [
+        "cmd/codedocket/"
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode-20260913T193359Z",
+          "note": "Evidence: proposal #2 of session zcode-20260913T193359Z — subprocess tests moved measured coverage only 22.9→26.2; in-process drivers took it to 55.2.",
+          "at": "2026-09-14T01:38:52.101196+05:30"
+        }
+      ],
+      "created": "2026-09-14T01:38:52.101196+05:30",
+      "updated": "2026-09-14T01:38:52.101196+05:30"
     },
     "workflow.feature-branches": {
       "key": "workflow.feature-branches",
