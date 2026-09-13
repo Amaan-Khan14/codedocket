@@ -14,6 +14,7 @@
     "codedocket": "bin/codedocket.js"
   },
   "scripts": {
+    "prepack": "node prepack.js",
     "postinstall": "node install.js"
   },
   "files": [
