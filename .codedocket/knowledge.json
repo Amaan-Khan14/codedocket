@@ -148,9 +148,10 @@
     "hooks.stop-capability": {
       "key": "hooks.stop-capability",
       "kind": "fact",
-      "statement": "Claude Code, Codex, ZCode, and Kiro all expose a Stop hook that can block the agent's stop with a reason injected as its next instruction. ZCode caps consecutive stop-blocks at 3, so the hook must allow stop when nothing is pending. opencode/cursor Stop-hook capability unverified.",
+      "statement": "Claude Code, Codex, ZCode, Kiro, and Cursor all expose a Stop hook that can keep the agent working with a reason. Cursor verified 2026-09-14: hooks.json hooks.stop[] with a command shell string; block via followup_message; cloud agents don't run stop hooks. ZCode caps consecutive blocks at 3, so the hook must allow when nothing is pending. opencode has no config-file Stop hook (stop-equivalent is a TS plugin) — registration deferred; AGENTS.md covers it there.",
       "scope": [
-        "cmd/codedocket/"
+        "cmd/codedocket/",
+        "hook.go"
       ],
       "status": "active",
       "evidence": [
@@ -158,10 +159,15 @@
           "session": "zcode",
           "note": "From official docs of each client, 2026-08-22.",
           "at": "2026-08-22T16:26:45.593344+05:30"
+        },
+        {
+          "session": "zcode-20260913T193359Z",
+          "note": "Cursor Stop-hook capability verified against cursor.com/docs/hooks 2026-09-14 during the fix/audit-issues branch; implemented in b7666e2. opencode re-checked 2026-09-14: hooks live in TypeScript plugins (.opencode/plugins/), no JSON-config Stop hook — deferral stands.",
+          "at": "2026-09-14T01:37:36.563738+05:30"
         }
       ],
       "created": "2026-08-22T16:26:45.593344+05:30",
-      "updated": "2026-08-22T16:26:45.593344+05:30"
+      "updated": "2026-09-14T01:37:36.563738+05:30"
     },
     "hooks.wire-shapes": {
       "key": "hooks.wire-shapes",
@@ -202,7 +208,7 @@
     "m6.shipped": {
       "key": "m6.shipped",
       "kind": "fact",
-      "statement": "M6 shipped on feat/m6-memory-consolidation (Tasks 0-6): note, finalize, hook stop, setup Stop-hook registration for claude/codex/zcode (kiro deferred - hooks are IDE-managed steering files), snippet v2, README. Full loop dogfooded live on the real store (a7101cb). Pending: owner restart of ZCode for the live gated-session check, merge to main, tag v0.4.0.",
+      "statement": "M6 (memory consolidation) is fully shipped: notes, finalize, hook stop, Stop-hook registration for claude/codex/zcode/cursor (kiro deferred — IDE-managed steering files), snippet v2. Merged to main (4459102), tag v0.4.0 cut, npm wrapper bumped to 0.4.0.",
       "scope": [
         "."
       ],
@@ -211,10 +217,15 @@
         {
           "session": "zcode",
           "at": "2026-08-22T21:46:24.937013+05:30"
+        },
+        {
+          "session": "zcode-20260913T193359Z",
+          "note": "Updated from the 2026-09-14 fix branch: the pending items listed by the original 2026-08-22 entry are all done — merge commit 4459102, npm wrapper bump 0fd8ace, tag v0.4.0 exists locally.",
+          "at": "2026-09-14T01:35:33.707893+05:30"
         }
       ],
       "created": "2026-08-22T21:46:24.937013+05:30",
-      "updated": "2026-08-22T21:46:24.937013+05:30"
+      "updated": "2026-09-14T01:35:33.707893+05:30"
     },
     "mcp.session-provenance": {
       "key": "mcp.session-provenance",
@@ -317,8 +328,9 @@
     "onboarding.agents-snippet": {
       "key": "onboarding.agents-snippet",
       "kind": "decision",
-      "statement": "ctx init bootstraps AGENTS.md with marker-delimited ctx instructions (ctx:begin/end markers); idempotent; init store-refusal unchanged; --no-agents opts out.",
+      "statement": "codedocket init bootstraps AGENTS.md with marker-delimited codedocket instructions (codedocket:begin/end markers); idempotent; init store-refusal unchanged; --no-agents opts out.",
       "scope": [
+        "cmd/codedocket/",
         "cmd/ctx/"
       ],
       "status": "active",
@@ -327,10 +339,15 @@
           "session": "m4-build",
           "note": "M4 implementation",
           "at": "2026-08-12T15:14:20.279656+05:30"
+        },
+        {
+          "session": "zcode-20260913T193359Z",
+          "note": "Renamed product ctx → codedocket (product.rename-codedocket); markers are now codedocket:begin/end (cmd/codedocket/agents.go), verified 2026-09-14.",
+          "at": "2026-09-14T01:37:18.185056+05:30"
         }
       ],
       "created": "2026-08-12T15:14:20.279656+05:30",
-      "updated": "2026-08-12T15:14:20.279656+05:30"
+      "updated": "2026-09-14T01:37:18.185056+05:30"
     },
     "onboarding.snippet-v2": {
       "key": "onboarding.snippet-v2",
@@ -484,8 +501,9 @@
     "setup.agent-onboarding": {
       "key": "setup.agent-onboarding",
       "kind": "decision",
-      "statement": "ctx setup configures supported agent clients for MCP by upserting a ctx server entry, installing the shared instruction snippet where supported, and optionally copying the binary to ~/.local/bin; Codex project-local TOML editing is deferred in V1.",
+      "statement": "codedocket setup configures supported agent clients for MCP by upserting a codedocket server entry, installing the shared instruction snippet where supported, and registering Stop hooks for claude/codex/zcode/cursor; Codex project-local TOML editing is deferred in V1.",
       "scope": [
+        "cmd/codedocket/",
         "cmd/ctx/"
       ],
       "status": "active",
@@ -494,10 +512,15 @@
           "session": "cli",
           "note": "Documented and prepared for v0.2.0 release.",
           "at": "2026-08-14T21:17:57.156426+05:30"
+        },
+        {
+          "session": "zcode-20260913T193359Z",
+          "note": "Renamed product ctx → codedocket (product.rename-codedocket); statement and scope updated from the 2026-09-14 audit to use current naming and the cmd/codedocket path.",
+          "at": "2026-09-14T01:37:18.159898+05:30"
         }
       ],
       "created": "2026-08-14T21:17:57.156426+05:30",
-      "updated": "2026-08-14T21:17:57.156426+05:30"
+      "updated": "2026-09-14T01:37:18.159898+05:30"
     },
     "setup.client-paths": {
       "key": "setup.client-paths",
