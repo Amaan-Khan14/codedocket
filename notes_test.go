@@ -61,8 +61,8 @@ func TestAppendNoteLazyCreation(t *testing.T) {
 	}
 
 	// gitignore ensured lazily alongside the first note (caller-driven here
-	// via EnsureSessionsGitignore, matching the CLI/MCP call order)
-	if err := EnsureSessionsGitignore(store); err != nil {
+	// via EnsureStoreGitignore, matching the CLI/MCP call order)
+	if err := EnsureStoreGitignore(store); err != nil {
 		t.Fatal(err)
 	}
 	b, _ := os.ReadFile(filepath.Join(store, ".gitignore"))
@@ -185,15 +185,15 @@ func TestNewSessionIDFormat(t *testing.T) {
 	}
 }
 
-func TestEnsureSessionsGitignoreIdempotent(t *testing.T) {
+func TestEnsureStoreGitignoreIdempotent(t *testing.T) {
 	store := noteFixtureDir(t)
 
-	if err := EnsureSessionsGitignore(store); err != nil {
+	if err := EnsureStoreGitignore(store); err != nil {
 		t.Fatal(err)
 	}
 	first, _ := os.ReadFile(filepath.Join(store, ".gitignore"))
 
-	if err := EnsureSessionsGitignore(store); err != nil {
+	if err := EnsureStoreGitignore(store); err != nil {
 		t.Fatal(err)
 	}
 	second, _ := os.ReadFile(filepath.Join(store, ".gitignore"))
@@ -206,7 +206,7 @@ func TestEnsureSessionsGitignoreIdempotent(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(store, ".gitignore"), foreign, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := EnsureSessionsGitignore(store); err != nil {
+	if err := EnsureStoreGitignore(store); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := os.ReadFile(filepath.Join(store, ".gitignore"))

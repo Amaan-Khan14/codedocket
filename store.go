@@ -34,9 +34,65 @@ func Load(path string) (*Store, error) {
 	return &s, nil
 }
 
+// Update applies mutate to the store and saves it, holding an exclusive
+// advisory lock on <storeDir>/.knowledge.lock for the whole read-modify-write.
+// It serializes writers across processes — each MCP client spawns its own
+// `serve` process, and ad-hoc CLI calls race against them — so a record can
+// no longer be silently dropped by last-writer-wins. Save alone stays
+// lock-free; every Load→mutate→Save sequence must go through Update.
+func Update(path string, mutate func(*Store) error) error {
+	lock, err := acquireStoreLock(path)
+	if err != nil {
+		return err
+	}
+	defer lock.release()
+
+	s, err := Load(path)
+	if err != nil {
+		return err
+	}
+	if err := mutate(s); err != nil {
+		return err
+	}
+	return s.Save(path)
+}
+
+// storeLock owns the open lock file for one Update critical section.
+type storeLock struct{ f *os.File }
+
+// acquireStoreLock opens (creating if needed) the lock file next to the
+// knowledge store and blocks until it holds the exclusive lock. The file is
+// deliberately never unlinked: unlock-then-remove races with a waiter that
+// still holds a fd on the removed inode while a third writer locks a fresh
+// file, breaking mutual exclusion. A permanent .knowledge.lock is harmless —
+// EnsureStoreGitignore keeps it out of git, and the OS releases the lock when
+// the process exits, so crashed writers leave no stale lock behind.
+func acquireStoreLock(knowledgePath string) (*storeLock, error) {
+	lockPath := filepath.Join(filepath.Dir(knowledgePath), ".knowledge.lock")
+	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o644)
+	if err != nil {
+		return nil, fmt.Errorf("opening lock file: %w", err)
+	}
+	if err := lockExclusive(f); err != nil {
+		f.Close()
+		return nil, fmt.Errorf("locking %s: %w", lockPath, err)
+	}
+	return &storeLock{f: f}, nil
+}
+
+func (l *storeLock) release() {
+	if l == nil || l.f == nil {
+		return
+	}
+	_ = unlockExclusive(l.f)
+	_ = l.f.Close()
+}
+
 // Save writes the store atomically: temp file in the target directory, then
 // rename. JSON map keys marshal in sorted order, so output is diff-stable
-// and git is the history of record.
+// and git is the history of record. Atomicity here only prevents torn files —
+// read-modify-write sequences must hold the store lock (see Update) or two
+// writers will still lose each other's changes.
 func (s *Store) Save(path string) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o755); err != nil {

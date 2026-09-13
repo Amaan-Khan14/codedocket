@@ -50,8 +50,8 @@ func initCtx(args []string) error {
 	}
 	// Sessions scratch is hygiene, not agent onboarding — always ensured,
 	// never fatal (first note re-ensures lazily for pre-M6 stores).
-	if err := codedocket.EnsureSessionsGitignore(ctxDir); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: sessions gitignore not written: %v\n", err)
+	if err := codedocket.EnsureStoreGitignore(ctxDir); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: store gitignore not written: %v\n", err)
 	}
 
 	fmt.Printf("initialized codedocket at %s\n", ctxDir)

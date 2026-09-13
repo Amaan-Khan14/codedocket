@@ -31,22 +31,11 @@ func disputeCtx(args []string) error {
 		return err
 	}
 
-	store, err := codedocket.Load(knowledgeFilePath)
-	if err != nil {
+	// Load→dispute→save under the store lock (same discipline as record).
+	if err := codedocket.Update(knowledgeFilePath, func(store *codedocket.Store) error {
+		_, err := codedocket.Dispute(store, *key, *session, *note, time.Now())
 		return err
-	}
-
-	if _, err := codedocket.Dispute(
-		store,
-		*key,
-		*session,
-		*note,
-		time.Now(),
-	); err != nil {
-		return err
-	}
-
-	if err := store.Save(knowledgeFilePath); err != nil {
+	}); err != nil {
 		return err
 	}
 
