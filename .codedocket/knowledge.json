@@ -1,6 +1,24 @@
 {
   "version": 1,
   "knowledge": {
+    "audit.issues-verified-2026-09": {
+      "key": "audit.issues-verified-2026-09",
+      "kind": "fact",
+      "statement": "A 2026-09-14 audit confirmed all seven reported issues as real: unlocked Load/mutate/Save in store.go, Windows-breaking JSON string concatenation in the three setup merge functions, missing Stop-hook support for opencode/cursor (a known deferral), tag-only CI, 22.9% cmd/codedocket test coverage, stale knowledge entries (m6.shipped, ctx-named entries), and a 0.3.2 vendored npm binary shipped under a 0.4.0 package.json.",
+      "scope": [
+        "."
+      ],
+      "status": "active",
+      "evidence": [
+        {
+          "session": "zcode-20260913T193359Z",
+          "note": "2026-09-14 issue audit verified all 7 reported defects as real: (1) store.go Load/mutate/Save has no locking or compare-and-swap anywhere in the repo — atomic temp+rename Save prevents torn files but last-writer-wins loses one agent's record; (2) setup_clients.go mergeOpencodeJSON/mergeMCPServersJSON/mergeZcodeJSON concatenate binPath into JSON literals so Windows backslash paths make json.Unmarshal fail (fails loudly, config untouched; Codex TOML path is safe via %q); (3) clientDef for opencode and cursor carries no HookGlobal/HookProject/mergeHook — knowledge records their Stop-hook capability as unverified, so this is a known deferral not an unnoticed bug; (4) release.yml is the only workflow and triggers solely on v* tags, so main has no test/vet/build gate; (5) coverage measured exactly 87.8% root / 22.9% cmd/codedocket / 87.3% internal/mcp, with only setup_test.go and agents_test.go in the CLI package; (6) m6.shipped still says pending merge-to-main/tag-v0.4.0 though merge commit 4459102 and tag v0.4.0 exist, and setup.agent-onboarding + onboarding.agents-snippet still say ctx/ctx:begin-end though the rename and codedocket:begin-end markers landed; (7) npm vendor binary prints 0.3.2 vs package.json 0.4.0 — nuance: install.js hard-fails on download error rather than falling back, the stale binary ships via files:[\"vendor/\"] and is silently used under --ignore-scripts or bypassed postinstall.",
+          "at": "2026-09-14T01:08:57.818275+05:30"
+        }
+      ],
+      "created": "2026-09-14T01:08:57.818275+05:30",
+      "updated": "2026-09-14T01:08:57.818275+05:30"
+    },
     "cli.before-mcp": {
       "key": "cli.before-mcp",
       "kind": "decision",
